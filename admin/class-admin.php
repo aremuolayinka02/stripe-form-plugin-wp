@@ -139,6 +139,7 @@ class PFB_Admin
         register_setting('pfb_settings', 'pfb_live_public_key');
         register_setting('pfb_settings', 'pfb_live_secret_key');
         register_setting('pfb_settings', 'pfb_webhook_secret');
+        register_setting('pfb_settings', 'pfb_enable_stripe_emails');
     }
 
     public function render_form_builder($post)
@@ -151,7 +152,7 @@ class PFB_Admin
         <div class="form-builder-container">
             <div class="email-field-notice">
                 <p><strong>Important:</strong> To enable Stripe email receipts, add an Email field to your form and check the "Customer Email" option for that field.</p>
-                <p>This will send payment receipts directly to your customer's email address.</p>
+                <p>You also need to enable the "Stripe email receipts" option in the <a href="<?php echo admin_url('edit.php?post_type=payment_form&page=pfb-settings'); ?>">plugin settings</a>.</p>
             </div>
 
             <div class="field-types">
@@ -359,6 +360,17 @@ class PFB_Admin
                         </td>
                     </tr>
                 </table>
+                <tr>
+                <h3>Email Receipts</h3>
+                <td>
+                    <label>
+                        <input type="checkbox" name="pfb_enable_stripe_emails" value="1"
+                            <?php checked(get_option('pfb_enable_stripe_emails', false)); ?>>
+                        Enable Stripe email receipts
+                    </label>
+                    <p class="description">When enabled, Stripe will send payment receipts to customers (requires an email field marked as "Customer Email" in your form).</p>
+                </td>
+            </tr>
                 <?php submit_button(); ?>
             </form>
             <hr>

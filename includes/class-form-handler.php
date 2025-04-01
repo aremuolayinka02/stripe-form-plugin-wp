@@ -73,9 +73,32 @@ class PFB_Form_Handler
             return;
         }
 
+        // Get customer email if specified and if Stripe emails are enabled
+        $customer_email = null;
+        $enable_stripe_emails = get_option('pfb_enable_stripe_emails', false);
+
+        if ($enable_stripe_emails) {
+            $customer_email_field = get_post_meta($form_id, '_customer_email_field', true);
+
+            if (!empty($customer_email_field)) {
+                // Find the corresponding label for this field ID
+                $form_fields = get_post_meta($form_id, '_form_fields', true);
+                if (is_array($form_fields)) {
+                    foreach ($form_fields as $field) {
+                        $field_id = sanitize_title($field['label']);
+                        if ($field_id === $customer_email_field && isset($form_data[$field['label']])) {
+                            $customer_email = sanitize_email($form_data[$field['label']]);
+                            error_log('Customer email found: ' . $customer_email);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         try {
-            // Create payment intent
-            $payment_intent = $this->stripe->create_payment_intent($amount, $currency);
+            // Create payment intent with customer email
+            $payment_intent = $this->stripe->create_payment_intent($amount, $currency, $customer_email);
 
             if (is_wp_error($payment_intent)) {
                 error_log('Stripe error: ' . $payment_intent->get_error_message());
