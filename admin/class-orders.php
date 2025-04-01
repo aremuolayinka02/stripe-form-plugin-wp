@@ -243,8 +243,9 @@ class PFB_Orders_Table extends WP_List_Table
         $order = !empty($args['order']) ? $args['order'] : 'DESC';
 
         $limit = '';
-        if ($args['per_page'] > 0) {
-            $limit = $wpdb->prepare(' LIMIT %d OFFSET %d', $args['per_page'], $args['offset']);
+        if (!empty($args['per_page']) && $args['per_page'] > 0) {
+            $offset = !empty($args['offset']) ? $args['offset'] : 0;
+            $limit = $wpdb->prepare(' LIMIT %d OFFSET %d', intval($args['per_page']), intval($offset));
         }
 
         $query = "SELECT * FROM $table_name WHERE $where ORDER BY $orderby $order $limit";
