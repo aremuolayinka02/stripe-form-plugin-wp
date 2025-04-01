@@ -114,6 +114,32 @@
 }
 
 
+/* Field type buttons */
+.field-types button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    background-color: #f7f7f7;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.field-types button:hover {
+    background-color: #f0f0f0;
+    border-color: #999;
+}
+
+.field-types button.add-field[data-type="email"] {
+    background-color: #e7f5fe;
+    border-color: #0073aa;
+    color: #0073aa;
+}
+
+.field-types button.add-field[data-type="email"]:hover {
+    background-color: #d9f0ff;
+}
+
 /* Check Status button */
 .check-status-button {
     margin-left: 10px !important;
@@ -130,4 +156,20 @@
 .check-status-button:hover {
     background-color: #f0f0f0 !important;
     border-color: #999 !important;
+}
+
+/* Email field notice */
+.email-field-notice {
+    background-color: #f0f8ff;
+    border-left: 4px solid #0073aa;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+}
+
+.email-field-notice p {
+    margin: 0.5em 0;
+}
+
+.email-field-notice strong {
+    color: #0073aa;
 }

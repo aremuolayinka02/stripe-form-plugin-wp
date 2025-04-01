@@ -146,8 +146,14 @@ class PFB_Admin
         wp_nonce_field('save_form_builder', 'form_builder_nonce');
 
         $form_fields = get_post_meta($post->ID, '_form_fields', true);
+        $customer_email_field = get_post_meta($post->ID, '_customer_email_field', true);
 ?>
         <div class="form-builder-container">
+            <div class="email-field-notice">
+                <p><strong>Important:</strong> To enable Stripe email receipts, add an Email field to your form and check the "Customer Email" option for that field.</p>
+                <p>This will send payment receipts directly to your customer's email address.</p>
+            </div>
+
             <div class="field-types">
                 <button type="button" class="add-field" data-type="text">Add Text Field</button>
                 <button type="button" class="add-field" data-type="email">Add Email Field</button>
@@ -157,8 +163,8 @@ class PFB_Admin
             <div class="form-fields-container">
                 <?php
                 if (is_array($form_fields)) {
-                    foreach ($form_fields as $field) {
-                        $this->render_field_row($field);
+                    foreach ($form_fields as $index => $field) {
+                        $this->render_field_row($field, $index, $customer_email_field);
                     }
                 }
                 ?>
@@ -167,8 +173,9 @@ class PFB_Admin
     <?php
     }
 
-    private function render_field_row($field = array())
+    private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
     {
+        $field_id = isset($field['label']) ? sanitize_title($field['label']) : 'field-' . $index;
     ?>
         <div class="field-row">
             <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field['type'] ?? 'text'); ?>">
@@ -179,6 +186,13 @@ class PFB_Admin
                     <?php checked(isset($field['required']) && $field['required']); ?>>
                 Required
             </label>
+            <?php if (($field['type'] ?? '') === 'email'): ?>
+                <label>
+                    <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
+                        <?php checked($customer_email_field, $field_id); ?>>
+                    Customer Email
+                </label>
+            <?php endif; ?>
             <button type="button" class="remove-field">Remove</button>
         </div>
     <?php
@@ -239,14 +253,27 @@ class PFB_Admin
         $fields = array();
         if (isset($_POST['field_type']) && is_array($_POST['field_type'])) {
             foreach ($_POST['field_type'] as $index => $type) {
+                $label = sanitize_text_field($_POST['field_label'][$index] ?? '');
                 $fields[] = array(
                     'type' => sanitize_text_field($type),
-                    'label' => sanitize_text_field($_POST['field_label'][$index] ?? ''),
+                    'label' => $label,
+                    'id' => sanitize_title($label),
                     'required' => isset($_POST['field_required'][$index])
                 );
             }
         }
         update_post_meta($post_id, '_form_fields', $fields);
+
+        // Save customer email field
+        if (isset($_POST['customer_email_field'])) {
+            update_post_meta(
+                $post_id,
+                '_customer_email_field',
+                sanitize_text_field($_POST['customer_email_field'])
+            );
+        } else {
+            delete_post_meta($post_id, '_customer_email_field');
+        }
 
         // Save payment settings
         if (isset($_POST['payment_amount'])) {

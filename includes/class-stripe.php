@@ -71,27 +71,53 @@ class PFB_Stripe
         return $this->errors;
     }
 
-    public function create_payment_intent($amount, $currency = 'usd')
-    {
-        if (!$this->is_ready()) {
-            return new WP_Error('stripe_not_ready', 'Stripe is not properly configured: ' . implode(', ', $this->errors));
+    public function create_payment_intent($amount, $currency = 'usd', $customer_email = null)
+{
+    if (!$this->is_ready()) {
+        return new WP_Error('stripe_not_ready', 'Stripe is not properly configured: ' . implode(', ', $this->errors));
+    }
+
+    try {
+        if (!is_numeric($amount) || $amount <= 0) {
+            return new WP_Error('invalid_amount', 'Invalid payment amount');
         }
 
-        try {
-            if (!is_numeric($amount) || $amount <= 0) {
-                return new WP_Error('invalid_amount', 'Invalid payment amount');
+        $params = [
+            'amount' => (int)($amount * 100), // Convert to cents
+            'currency' => strtolower($currency),
+        ];
+
+        // Add customer email if provided
+        if (!empty($customer_email)) {
+            error_log('Adding customer email to payment intent: ' . $customer_email);
+            
+            // Create or retrieve a customer
+            $customers = \Stripe\Customer::all([
+                'email' => $customer_email,
+                'limit' => 1
+            ]);
+
+            if (count($customers->data) > 0) {
+                $customer = $customers->data[0];
+                error_log('Using existing Stripe customer: ' . $customer->id);
+            } else {
+                $customer = \Stripe\Customer::create([
+                    'email' => $customer_email
+                ]);
+                error_log('Created new Stripe customer: ' . $customer->id);
             }
 
-            return \Stripe\PaymentIntent::create([
-                'amount' => (int)($amount * 100), // Convert to cents
-                'currency' => strtolower($currency),
-            ]);
-        } catch (\Stripe\Exception\CardException $e) {
-            return new WP_Error('stripe_card_error', $e->getMessage());
-        } catch (\Exception $e) {
-            return new WP_Error('stripe_error', $e->getMessage());
+            $params['customer'] = $customer->id;
+            $params['receipt_email'] = $customer_email;
         }
+
+        return \Stripe\PaymentIntent::create($params);
+    } catch (\Stripe\Exception\CardException $e) {
+        return new WP_Error('stripe_card_error', $e->getMessage());
+    } catch (\Exception $e) {
+        return new WP_Error('stripe_error', $e->getMessage());
     }
+}
 
     /**
      * Register the webhook endpoint
