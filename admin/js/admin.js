@@ -16,9 +16,7 @@ jQuery(document).ready(function ($) {
     if (fieldType === "email") {
       template += `
                 <label>
-                    <input type="radio" name="customer_email_field" value="field-${
-                      $(".field-row").length
-                    }">
+                    <input type="radio" name="customer_email_field" value="">
                     Customer Email
                 </label>
             `;
@@ -30,17 +28,14 @@ jQuery(document).ready(function ($) {
 
     $(".form-fields-container").append(template);
 
-    // Update field IDs when labels change
-    $('.field-row:last-child input[name="field_label[]"]').on(
-      "change",
-      function () {
-        const fieldId = "field-" + sanitizeTitle($(this).val());
-        $(this)
-          .closest(".field-row")
-          .find('input[name="customer_email_field"]')
-          .val(fieldId);
-      }
-    );
+    // Initialize the field with an empty value
+    const $newField = $(".field-row:last-child");
+
+    // Set up the change handler for the label field
+    $newField.find('input[name="field_label[]"]').on("change", function () {
+      const fieldId = sanitizeTitle($(this).val());
+      $newField.find('input[name="customer_email_field"]').val(fieldId);
+    });
   });
 
   // Remove field

@@ -175,29 +175,29 @@ class PFB_Admin
     }
 
     private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
-    {
-        $field_id = isset($field['label']) ? sanitize_title($field['label']) : 'field-' . $index;
-    ?>
-        <div class="field-row">
-            <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field['type'] ?? 'text'); ?>">
-            <input type="text" name="field_label[]" placeholder="Field Label"
-                value="<?php echo esc_attr($field['label'] ?? ''); ?>">
+{
+    $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
+?>
+    <div class="field-row">
+        <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field['type'] ?? 'text'); ?>">
+        <input type="text" name="field_label[]" placeholder="Field Label"
+            value="<?php echo esc_attr($field['label'] ?? ''); ?>">
+        <label>
+            <input type="checkbox" name="field_required[]" value="1"
+                <?php checked(isset($field['required']) && $field['required']); ?>>
+            Required
+        </label>
+        <?php if (($field['type'] ?? '') === 'email'): ?>
             <label>
-                <input type="checkbox" name="field_required[]" value="1"
-                    <?php checked(isset($field['required']) && $field['required']); ?>>
-                Required
+                <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
+                    <?php checked($customer_email_field, $field_id); ?>>
+                Customer Email
             </label>
-            <?php if (($field['type'] ?? '') === 'email'): ?>
-                <label>
-                    <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
-                        <?php checked($customer_email_field, $field_id); ?>>
-                    Customer Email
-                </label>
-            <?php endif; ?>
-            <button type="button" class="remove-field">Remove</button>
-        </div>
-    <?php
-    }
+        <?php endif; ?>
+        <button type="button" class="remove-field">Remove</button>
+    </div>
+<?php
+}
 
     public function render_payment_settings($post)
     {
