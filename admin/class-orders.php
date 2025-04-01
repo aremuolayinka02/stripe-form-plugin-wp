@@ -75,19 +75,21 @@ class PFB_Orders_Table extends WP_List_Table {
     }
     
     protected function column_default($item, $column_name) {
-        switch ($column_name) {
-            case 'id':
-                return $item->id;
-            case 'payment_intent':
-                return $item->payment_intent;
-            case 'mode':
-                return $item->mode ? '<span class="mode-' . esc_attr($item->mode) . '">' . ucfirst($item->mode) . '</span>' : 'Unknown';
-            case 'date':
-                return date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($item->created_at));
-            default:
-                return isset($item->$column_name) ? $item->$column_name : '';
-        }
+    switch ($column_name) {
+        case 'id':
+            return $item->id;
+        case 'payment_intent':
+            return $item->payment_intent;
+        case 'mode':
+            return isset($item->mode) && $item->mode ? 
+                '<span class="mode-' . esc_attr($item->mode) . '">' . ucfirst($item->mode) . '</span>' : 
+                '<span class="mode-unknown">Unknown</span>';
+        case 'date':
+            return date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($item->created_at));
+        default:
+            return isset($item->$column_name) ? $item->$column_name : '';
     }
+}
     
     protected function column_cb($item) {
         return sprintf(

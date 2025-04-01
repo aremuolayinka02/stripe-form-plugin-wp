@@ -20,6 +20,9 @@ class PFB_Admin
 
         // Enqueue admin scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
+
+        // Handle database repair
+        add_action('admin_init', array($this, 'handle_database_repair'));
     }
 
     public function register_form_post_type()
@@ -55,6 +58,47 @@ class PFB_Admin
         );
 
         register_post_type('payment_form', $args);
+    }
+
+    public function handle_database_repair()
+    {
+        if (
+            isset($_POST['pfb_repair_database']) &&
+            isset($_POST['pfb_repair_nonce']) &&
+            wp_verify_nonce($_POST['pfb_repair_nonce'], 'pfb_repair_database')
+        ) {
+            $result = $this->repair_database();
+
+            if (is_array($result)) {
+                if ($result['success']) {
+                    add_action('admin_notices', function () use ($result) {
+                        echo '<div class="notice notice-success is-dismissible">';
+                        echo '<p><strong>Database repair completed successfully.</strong></p>';
+                        if (!empty($result['updates'])) {
+                            echo '<ul>';
+                            foreach ($result['updates'] as $update) {
+                                echo '<li>' . esc_html($update) . '</li>';
+                            }
+                            echo '</ul>';
+                        }
+                        echo '</div>';
+                    });
+                } else {
+                    add_action('admin_notices', function () use ($result) {
+                        echo '<div class="notice notice-error is-dismissible">';
+                        echo '<p><strong>Database repair encountered errors:</strong></p>';
+                        if (!empty($result['updates'])) {
+                            echo '<ul>';
+                            foreach ($result['updates'] as $update) {
+                                echo '<li>' . esc_html($update) . '</li>';
+                            }
+                            echo '</ul>';
+                        }
+                        echo '</div>';
+                    });
+                }
+            }
+        }
     }
 
     public function add_meta_boxes()
@@ -290,8 +334,69 @@ class PFB_Admin
                 </table>
                 <?php submit_button(); ?>
             </form>
+            <hr>
+            <h3>Database Maintenance</h3>
+            <p>If you're experiencing issues with missing columns in the database, use this button to repair the database structure.</p>
+            <form method="post" action="">
+                <?php wp_nonce_field('pfb_repair_database', 'pfb_repair_nonce'); ?>
+                <input type="hidden" name="pfb_repair_database" value="1">
+                <?php submit_button('Repair Database', 'secondary', 'repair_database'); ?>
+            </form>
         </div>
     <?php
+    }
+
+    public function repair_database()
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'pfb_submissions';
+
+        // Check if table exists
+        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+            // Table doesn't exist, create it
+            $this->create_tables();
+            return true;
+        }
+
+        $updates = [];
+        $success = true;
+
+        // Check for mode column
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'mode'");
+        if (empty($column_exists)) {
+            $result = $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN mode varchar(10) AFTER currency");
+            if ($result !== false) {
+                $updates[] = 'Added "mode" column';
+
+                // Set default value for existing records
+                $test_mode = get_option('pfb_test_mode', true);
+                $default_mode = $test_mode ? 'test' : 'live';
+                $wpdb->query("UPDATE {$table_name} SET mode = '{$default_mode}' WHERE mode IS NULL");
+
+                // Add index
+                $wpdb->query("ALTER TABLE {$table_name} ADD INDEX mode (mode)");
+            } else {
+                $success = false;
+                $updates[] = 'Failed to add "mode" column: ' . $wpdb->last_error;
+            }
+        }
+
+        // Check for payment_intent index
+        $index_exists = $wpdb->get_results("SHOW INDEX FROM {$table_name} WHERE Key_name = 'payment_intent'");
+        if (empty($index_exists)) {
+            $result = $wpdb->query("ALTER TABLE {$table_name} ADD INDEX payment_intent (payment_intent)");
+            if ($result !== false) {
+                $updates[] = 'Added index for "payment_intent" column';
+            } else {
+                $success = false;
+                $updates[] = 'Failed to add index for "payment_intent" column: ' . $wpdb->last_error;
+            }
+        }
+
+        return [
+            'success' => $success,
+            'updates' => $updates
+        ];
     }
 
     public function render_orders_page()
