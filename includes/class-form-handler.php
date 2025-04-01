@@ -94,7 +94,7 @@ class PFB_Form_Handler
         }
     }
 
-    pprivate function store_submission($form_id, $form_data)
+    private function store_submission($form_id, $form_data)
 {
     global $wpdb;
 
