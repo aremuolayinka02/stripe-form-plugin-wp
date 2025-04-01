@@ -4,10 +4,11 @@ class PFB_Form_Handler
     private $stripe;
     private $initialized = false; // Explicitly declare the property
 
-    public function __construct() {
+    public function __construct()
+    {
         try {
             $this->stripe = new PFB_Stripe();
-            
+
             if ($this->stripe->is_ready()) {
                 $this->initialized = true;
                 add_action('wp_ajax_process_payment_form', array($this, 'process_form'));
@@ -20,7 +21,8 @@ class PFB_Form_Handler
         }
     }
 
-    public function display_stripe_errors() {
+    public function display_stripe_errors()
+    {
         if ($this->stripe) {
             $errors = $this->stripe->get_errors();
             foreach ($errors as $error) {
@@ -81,8 +83,9 @@ class PFB_Form_Handler
                 return;
             }
 
-            // Store form submission
-            $submission_id = $this->store_submission($form_id, $form_data);
+            // Store form submission WITH payment intent ID
+            $submission_id = $this->store_submission($form_id, $form_data, $payment_intent->id);
+            error_log('Stored submission with ID: ' . $submission_id . ' and payment intent: ' . $payment_intent->id);
 
             wp_send_json_success(array(
                 'client_secret' => $payment_intent->client_secret,
@@ -94,26 +97,38 @@ class PFB_Form_Handler
         }
     }
 
-    private function store_submission($form_id, $form_data)
-{
-    global $wpdb;
+    private function store_submission($form_id, $form_data, $payment_intent_id = null)
+    {
+        global $wpdb;
 
-    // Get the current mode (test or live)
-    $test_mode = get_option('pfb_test_mode', true);
-    $mode = $test_mode ? 'test' : 'live';
+        // Get the current mode (test or live)
+        $test_mode = get_option('pfb_test_mode', true);
+        $mode = $test_mode ? 'test' : 'live';
 
-    $wpdb->insert(
-        $wpdb->prefix . 'pfb_submissions',
-        array(
+        $data = array(
             'form_id' => $form_id,
             'submission_data' => json_encode($form_data),
             'payment_status' => 'pending',
             'mode' => $mode,
             'created_at' => current_time('mysql')
-        ),
-        array('%d', '%s', '%s', '%s', '%s')
-    );
+        );
 
-    return $wpdb->insert_id;
-}
+        $format = array('%d', '%s', '%s', '%s', '%s');
+
+        // Add payment intent if available
+        if ($payment_intent_id) {
+            $data['payment_intent'] = $payment_intent_id;
+            $format[] = '%s';
+
+            error_log('Adding payment intent to submission: ' . $payment_intent_id);
+        }
+
+        $wpdb->insert(
+            $wpdb->prefix . 'pfb_submissions',
+            $data,
+            $format
+        );
+
+        return $wpdb->insert_id;
+    }
 }
