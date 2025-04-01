@@ -189,16 +189,16 @@ class PFB_Stripe
 
         error_log("Updating payment status for intent: $payment_intent_id to status: $status");
 
-        // First, check if we have a record with this payment intent
+        // Check if this payment is already in the target status
         $table_name = $wpdb->prefix . 'pfb_submissions';
         $existing = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM $table_name WHERE payment_intent = %s",
             $payment_intent_id
         ));
 
-        if (!$existing) {
-            error_log("No record found for payment intent: $payment_intent_id");
-            return false;
+        if ($existing && $existing->payment_status === $status) {
+            error_log("Payment $payment_intent_id already has status $status - skipping update");
+            return true; // Already in the correct status
         }
 
         error_log("Found record ID: {$existing->id} with current status: {$existing->payment_status}");

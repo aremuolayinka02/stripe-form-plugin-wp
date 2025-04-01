@@ -105,15 +105,21 @@ class PFB_Form_Handler
         $test_mode = get_option('pfb_test_mode', true);
         $mode = $test_mode ? 'test' : 'live';
 
+        // Get payment details
+        $amount = floatval(get_post_meta($form_id, '_payment_amount', true));
+        $currency = get_post_meta($form_id, '_payment_currency', true) ?: 'usd';
+
         $data = array(
             'form_id' => $form_id,
             'submission_data' => json_encode($form_data),
             'payment_status' => 'pending',
             'mode' => $mode,
+            'amount' => $amount,
+            'currency' => $currency,
             'created_at' => current_time('mysql')
         );
 
-        $format = array('%d', '%s', '%s', '%s', '%s');
+        $format = array('%d', '%s', '%s', '%s', '%f', '%s', '%s');
 
         // Add payment intent if available
         if ($payment_intent_id) {
