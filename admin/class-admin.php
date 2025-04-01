@@ -177,9 +177,10 @@ class PFB_Admin
     private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
 {
     $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
+    $field_type = isset($field['type']) ? $field['type'] : 'text';
 ?>
-    <div class="field-row">
-        <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field['type'] ?? 'text'); ?>">
+    <div class="field-row" data-type="<?php echo esc_attr($field_type); ?>">
+        <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field_type); ?>">
         <input type="text" name="field_label[]" placeholder="Field Label"
             value="<?php echo esc_attr($field['label'] ?? ''); ?>">
         <label>
@@ -187,13 +188,14 @@ class PFB_Admin
                 <?php checked(isset($field['required']) && $field['required']); ?>>
             Required
         </label>
-        <?php if (($field['type'] ?? '') === 'email'): ?>
-            <label>
-                <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
-                    <?php checked($customer_email_field, $field_id); ?>>
-                Customer Email
-            </label>
-        <?php endif; ?>
+        
+        <!-- Customer email option - will be shown/hidden via CSS -->
+        <label class="customer-email-option">
+            <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
+                <?php checked($customer_email_field, $field_id); ?>>
+            <span style="color:#0073aa;">Customer Email</span>
+        </label>
+        
         <button type="button" class="remove-field">Remove</button>
     </div>
 <?php
@@ -361,16 +363,16 @@ class PFB_Admin
                     </tr>
                 </table>
                 <tr>
-                <h3>Email Receipts</h3>
-                <td>
-                    <label>
-                        <input type="checkbox" name="pfb_enable_stripe_emails" value="1"
-                            <?php checked(get_option('pfb_enable_stripe_emails', false)); ?>>
-                        Enable Stripe email receipts
-                    </label>
-                    <p class="description">When enabled, Stripe will send payment receipts to customers (requires an email field marked as "Customer Email" in your form).</p>
-                </td>
-            </tr>
+                    <h3>Email Receipts</h3>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="pfb_enable_stripe_emails" value="1"
+                                <?php checked(get_option('pfb_enable_stripe_emails', false)); ?>>
+                            Enable Stripe email receipts
+                        </label>
+                        <p class="description">When enabled, Stripe will send payment receipts to customers (requires an email field marked as "Customer Email" in your form).</p>
+                    </td>
+                </tr>
                 <?php submit_button(); ?>
             </form>
             <hr>

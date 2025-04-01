@@ -24,8 +24,23 @@
     margin: 0 10px;
 }
 
+/* Make sure customer email option is visible */
 .field-row label {
     margin: 0 10px;
+    display: inline-block !important;
+    visibility: visible !important;
+}
+
+/* Style the customer email radio option */
+.field-row label input[name="customer_email_field"] {
+    margin-right: 5px;
+}
+
+.field-row label:has(input[name="customer_email_field"]) {
+    background-color: #e7f5fe;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid #0073aa;
 }
 
 .remove-field {
@@ -172,4 +187,30 @@
 
 .email-field-notice strong {
     color: #0073aa;
+}
+
+/* Style for customer email option */
+.customer-email-option {
+    display: none !important; /* Hide by default */
+}
+
+/* Show for email fields */
+.field-row[data-type="email"] .customer-email-option {
+    display: inline-block !important;
+}
+
+/* Always show customer email option for email fields */
+.field-row[data-type="email"] .customer-email-option,
+.field-row input[name="field_type[]"][value="email"] ~ .customer-email-option {
+    display: inline-block !important;
+    margin: 0 10px !important;
+    background-color: #e7f5fe !important;
+    padding: 3px 8px !important;
+    border: 1px solid #0073aa !important;
+    border-radius: 3px !important;
+}
+
+/* Hide customer email option for non-email fields */
+.customer-email-option {
+    display: none !important;
 }
