@@ -94,21 +94,26 @@ class PFB_Form_Handler
         }
     }
 
-    private function store_submission($form_id, $form_data)
-    {
-        global $wpdb;
+    pprivate function store_submission($form_id, $form_data)
+{
+    global $wpdb;
 
-        $wpdb->insert(
-            $wpdb->prefix . 'pfb_submissions',
-            array(
-                'form_id' => $form_id,
-                'submission_data' => json_encode($form_data),
-                'payment_status' => 'pending',
-                'created_at' => current_time('mysql')
-            ),
-            array('%d', '%s', '%s', '%s')
-        );
+    // Get the current mode (test or live)
+    $test_mode = get_option('pfb_test_mode', true);
+    $mode = $test_mode ? 'test' : 'live';
 
-        return $wpdb->insert_id;
-    }
+    $wpdb->insert(
+        $wpdb->prefix . 'pfb_submissions',
+        array(
+            'form_id' => $form_id,
+            'submission_data' => json_encode($form_data),
+            'payment_status' => 'pending',
+            'mode' => $mode,
+            'created_at' => current_time('mysql')
+        ),
+        array('%d', '%s', '%s', '%s', '%s')
+    );
+
+    return $wpdb->insert_id;
+}
 }

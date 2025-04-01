@@ -28,3 +28,21 @@ jQuery(document).ready(function ($) {
     cursor: "move",
   });
 });
+
+
+// Orders page AJAX search
+jQuery(document).ready(function($) {
+    var searchTimer;
+    
+    // Handle search input with debounce
+    $('.orders-filters input[name="s"]').on('input', function() {
+        clearTimeout(searchTimer);
+        var searchInput = $(this);
+        
+        searchTimer = setTimeout(function() {
+            if (searchInput.val().length >= 3 || searchInput.val().length === 0) {
+                $('.orders-filters form').submit();
+            }
+        }, 500);
+    });
+});

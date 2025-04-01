@@ -49,3 +49,66 @@
     background: #f1f1f1;
     margin-top: 10px;
 }
+
+
+
+
+/* Orders table styles */
+.wp-list-table .column-status {
+    width: 10%;
+}
+
+.wp-list-table .column-mode {
+    width: 8%;
+}
+
+.wp-list-table .column-amount {
+    width: 10%;
+}
+
+.wp-list-table .column-date {
+    width: 15%;
+}
+
+/* Status styles */
+.status-pending {
+    color: #f0ad4e;
+    font-weight: bold;
+}
+
+.status-completed {
+    color: #5cb85c;
+    font-weight: bold;
+}
+
+.status-failed {
+    color: #d9534f;
+    font-weight: bold;
+}
+
+/* Mode styles */
+.mode-test {
+    color: #5bc0de;
+    font-weight: bold;
+}
+
+.mode-live {
+    color: #5cb85c;
+    font-weight: bold;
+}
+
+/* Orders filters */
+.orders-filters {
+    margin: 1em 0;
+    padding: 10px;
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.orders-filters select,
+.orders-filters input[type="text"] {
+    margin-right: 5px;
+}
