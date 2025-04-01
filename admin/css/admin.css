@@ -1,0 +1,51 @@
+.form-builder-container {
+    padding: 20px;
+}
+
+.field-types {
+    margin-bottom: 20px;
+}
+
+.field-types button {
+    margin-right: 10px;
+}
+
+.field-row {
+    background: #f9f9f9;
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+}
+
+.field-row input[type="text"] {
+    flex: 1;
+    margin: 0 10px;
+}
+
+.field-row label {
+    margin: 0 10px;
+}
+
+.remove-field {
+    color: #dc3232;
+    cursor: pointer;
+}
+
+.payment-settings label {
+    display: inline-block;
+    min-width: 120px;
+}
+
+.shortcode-info {
+    background: #fff;
+    padding: 15px;
+}
+
+.shortcode-info code {
+    display: block;
+    padding: 10px;
+    background: #f1f1f1;
+    margin-top: 10px;
+}
