@@ -133,86 +133,83 @@ class PFB_Orders_Table extends WP_List_Table
 
         // Add refresh button for pending payments
         if ($item->payment_status === 'pending' && $item->payment_intent) {
-            $actions = [
-                'check_status' => sprintf(
-                    '<a href="%s" class="check-status">Check Status</a>',
-                    wp_nonce_url(
-                        add_query_arg(
-                            ['action' => 'check_status', 'order' => $item->id],
-                            admin_url('edit.php?post_type=payment_form&page=pfb-orders')
-                        ),
-                        'check_status_' . $item->id
-                    )
-                )
-            ];
+            $check_url = wp_nonce_url(
+                add_query_arg(
+                    ['action' => 'check_status', 'order' => $item->id],
+                    admin_url('edit.php?post_type=payment_form&page=pfb-orders')
+                ),
+                'check_status_' . $item->id
+            );
 
-            return $status_html . $this->row_actions($actions);
+            // Display the button directly after the status
+            return $status_html . ' <a href="' . esc_url($check_url) . '" class="button button-small check-status-button">Check Status</a>';
         }
 
         return $status_html;
     }
 
-    public function process_actions() {
-    $action = isset($_GET['action']) ? $_GET['action'] : '';
-    
-    if ($action === 'check_status') {
-        $order_id = isset($_GET['order']) ? intval($_GET['order']) : 0;
-        
-        if ($order_id && isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'check_status_' . $order_id)) {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'pfb_submissions';
-            
-            $order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $order_id));
-            
-            if ($order && $order->payment_intent) {
-                // Create Stripe instance
-                $stripe = new PFB_Stripe();
-                
-                if ($stripe->is_ready()) {
-                    // Check payment status directly from Stripe
-                    try {
-                        $payment_intent = \Stripe\PaymentIntent::retrieve($order->payment_intent);
-                        
-                        if ($payment_intent->status === 'succeeded') {
-                            // Update the status
-                            $wpdb->update(
-                                $table_name,
-                                [
-                                    'payment_status' => 'completed',
-                                    'amount' => $payment_intent->amount / 100,
-                                    'currency' => $payment_intent->currency,
-                                    'updated_at' => current_time('mysql')
-                                ],
-                                ['id' => $order_id],
-                                ['%s', '%f', '%s', '%s'],
-                                ['%d']
-                            );
-                            
-                            // Add success message
-                            add_action('admin_notices', function() {
-                                echo '<div class="notice notice-success is-dismissible"><p>Payment status updated successfully.</p></div>';
-                            });
-                        } else {
-                            // Add info message
-                            add_action('admin_notices', function() use ($payment_intent) {
-                                echo '<div class="notice notice-info is-dismissible"><p>Payment status on Stripe is: ' . esc_html($payment_intent->status) . '</p></div>';
+    public function process_actions()
+    {
+        $action = isset($_GET['action']) ? $_GET['action'] : '';
+
+        if ($action === 'check_status') {
+            $order_id = isset($_GET['order']) ? intval($_GET['order']) : 0;
+
+            if ($order_id && isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'check_status_' . $order_id)) {
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'pfb_submissions';
+
+                $order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $order_id));
+
+                if ($order && $order->payment_intent) {
+                    // Create Stripe instance
+                    $stripe = new PFB_Stripe();
+
+                    if ($stripe->is_ready()) {
+                        // Check payment status directly from Stripe
+                        try {
+                            $payment_intent = \Stripe\PaymentIntent::retrieve($order->payment_intent);
+
+                            if ($payment_intent->status === 'succeeded') {
+                                // Update the status
+                                $wpdb->update(
+                                    $table_name,
+                                    [
+                                        'payment_status' => 'completed',
+                                        'amount' => $payment_intent->amount / 100,
+                                        'currency' => $payment_intent->currency,
+                                        'updated_at' => current_time('mysql')
+                                    ],
+                                    ['id' => $order_id],
+                                    ['%s', '%f', '%s', '%s'],
+                                    ['%d']
+                                );
+
+                                // Add success message
+                                add_action('admin_notices', function () {
+                                    echo '<div class="notice notice-success is-dismissible"><p>Payment status updated successfully.</p></div>';
+                                });
+                            } else {
+                                // Add info message
+                                add_action('admin_notices', function () use ($payment_intent) {
+                                    echo '<div class="notice notice-info is-dismissible"><p>Payment status on Stripe is: ' . esc_html($payment_intent->status) . '</p></div>';
+                                });
+                            }
+                        } catch (Exception $e) {
+                            // Add error message
+                            add_action('admin_notices', function () use ($e) {
+                                echo '<div class="notice notice-error is-dismissible"><p>Error checking payment status: ' . esc_html($e->getMessage()) . '</p></div>';
                             });
                         }
-                    } catch (Exception $e) {
-                        // Add error message
-                        add_action('admin_notices', function() use ($e) {
-                            echo '<div class="notice notice-error is-dismissible"><p>Error checking payment status: ' . esc_html($e->getMessage()) . '</p></div>';
-                        });
                     }
                 }
+
+                // Redirect back to orders page
+                wp_redirect(remove_query_arg(['action', 'order', '_wpnonce']));
+                exit;
             }
-            
-            // Redirect back to orders page
-            wp_redirect(remove_query_arg(['action', 'order', '_wpnonce']));
-            exit;
         }
     }
-}
 
     private function get_orders($args)
     {

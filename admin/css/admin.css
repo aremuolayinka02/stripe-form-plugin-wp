@@ -112,3 +112,22 @@
 .orders-filters input[type="text"] {
     margin-right: 5px;
 }
+
+
+/* Check Status button */
+.check-status-button {
+    margin-left: 10px !important;
+    vertical-align: middle !important;
+    background-color: #f7f7f7 !important;
+    border-color: #ccc !important;
+    color: #555 !important;
+    font-size: 11px !important;
+    height: auto !important;
+    padding: 2px 8px !important;
+    line-height: 1.5 !important;
+}
+
+.check-status-button:hover {
+    background-color: #f0f0f0 !important;
+    border-color: #999 !important;
+}

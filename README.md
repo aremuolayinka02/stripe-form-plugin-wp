@@ -19,4 +19,7 @@
 4. Configure webhook endpoint in your Stripe Dashboard:
    - Endpoint URL: https://your-site.com/wp-json/pfb/v1/webhook
    - Events to send: payment_intent.succeeded, payment_intent.payment_failed# stripe-form-plugin-wp
-5. - The occasional webhook failures are normal with Stripe's system, but these improvements will make your plugin more resilient to those issues.
+
+//Note
+1. The occasional webhook failures are normal with Stripe's system, but these improvements will make your plugin more resilient to those issues.
+2. Yes, when Stripe retries a webhook, it will update your table automatically as long as your webhook endpoint is working correctly. The webhook handler in your class-stripe.php file processes the event and calls update_payment_status() which updates your database table.
