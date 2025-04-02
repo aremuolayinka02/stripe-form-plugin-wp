@@ -214,3 +214,41 @@
 .customer-email-option {
     display: none !important;
 }
+
+/* Add to admin.css */
+.two-column-row {
+  display: block;
+}
+
+.two-column-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.two-column-container .column {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .two-column-container {
+    flex-direction: column;
+  }
+  
+  .two-column-container .column {
+    width: 100%;
+  }
+}
+
+/* Style for the two-column button */
+.field-types button.add-two-column {
+  background-color: #f0f8ff;
+  border-color: #5b9dd9;
+  color: #0073aa;
+}
+
+.field-types button.add-two-column:hover {
+  background-color: #e0f0ff;
+}

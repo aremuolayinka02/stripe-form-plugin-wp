@@ -1,3 +1,4 @@
+// Add to admin.js
 jQuery(document).ready(function ($) {
   // Add new field
   $(".add-field").on("click", function () {
@@ -37,6 +38,35 @@ jQuery(document).ready(function ($) {
         $newField.find('input[name="customer_email_field"]').val(fieldId);
       }
     });
+  });
+
+  // Add to admin.js
+  $(".add-two-column").on("click", function () {
+    const html = `
+      <div class="field-row two-column-row" data-type="two-column">
+        <div class="two-column-container">
+          <div class="column">
+            <input type="hidden" name="field_type[]" value="text">
+            <input type="text" name="field_label[]" placeholder="Left Column Label">
+            <label>
+              <input type="checkbox" name="field_required[]" value="1">
+              Required
+            </label>
+          </div>
+          <div class="column">
+            <input type="hidden" name="field_type[]" value="text">
+            <input type="text" name="field_label[]" placeholder="Right Column Label">
+            <label>
+              <input type="checkbox" name="field_required[]" value="1">
+              Required
+            </label>
+          </div>
+        </div>
+        <button type="button" class="remove-field">Remove</button>
+      </div>
+    `;
+
+    $(".form-fields-container").append(html);
   });
 
   // Remove field

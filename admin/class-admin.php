@@ -23,6 +23,8 @@ class PFB_Admin
 
         // Handle database repair
         add_action('admin_init', array($this, 'handle_database_repair'));
+
+        add_action('add_meta_boxes', array($this, 'remove_unwanted_meta_boxes'), 99);
     }
 
     public function register_form_post_type()
@@ -142,6 +144,29 @@ class PFB_Admin
         register_setting('pfb_settings', 'pfb_enable_stripe_emails');
     }
 
+    public function remove_unwanted_meta_boxes()
+    {
+        // Only on our custom post type
+        if (get_post_type() !== 'payment_form') {
+            return;
+        }
+
+        // Remove all default meta boxes from the side context except 'submitdiv' (Publish box)
+        global $wp_meta_boxes;
+
+        if (isset($wp_meta_boxes['payment_form']['side'])) {
+            foreach ($wp_meta_boxes['payment_form']['side'] as $priority => $boxes) {
+                foreach ($boxes as $box_id => $box) {
+                    // Keep only the publish box and our shortcode box
+                    if ($box_id !== 'submitdiv' && $box_id !== 'shortcode_info') {
+                        remove_meta_box($box_id, 'payment_form', 'side');
+                    }
+                }
+            }
+        }
+    }
+
+    // Update in class-admin.php in the render_form_builder method
     public function render_form_builder($post)
     {
         wp_nonce_field('save_form_builder', 'form_builder_nonce');
@@ -159,6 +184,7 @@ class PFB_Admin
                 <button type="button" class="add-field" data-type="text">Add Text Field</button>
                 <button type="button" class="add-field" data-type="email">Add Email Field</button>
                 <button type="button" class="add-field" data-type="textarea">Add Textarea</button>
+                <button type="button" class="add-two-column">Add Two-Column Fields</button>
             </div>
 
             <div class="form-fields-container">
@@ -171,41 +197,74 @@ class PFB_Admin
                 ?>
             </div>
         </div>
-    <?php
+        <?php
     }
 
     private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
-{
-    $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
-    $field_type = isset($field['type']) ? $field['type'] : 'text';
-?>
-    <div class="field-row" data-type="<?php echo esc_attr($field_type); ?>">
-        <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field_type); ?>">
-        <input type="text" name="field_label[]" placeholder="Field Label"
-            value="<?php echo esc_attr($field['label'] ?? ''); ?>">
-        <label>
-            <input type="checkbox" name="field_required[]" value="1"
-                <?php checked(isset($field['required']) && $field['required']); ?>>
-            Required
-        </label>
-        
-        <!-- Customer email option - will be shown/hidden via CSS -->
-        <label class="customer-email-option">
-            <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
-                <?php checked($customer_email_field, $field_id); ?>>
-            <span style="color:#0073aa;">Customer Email</span>
-        </label>
-        
-        <button type="button" class="remove-field">Remove</button>
-    </div>
-<?php
-}
+    {
+        $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
+        $field_type = isset($field['type']) ? $field['type'] : 'text';
+
+        if ($field_type === 'two-column') {
+            // Render two-column layout
+        ?>
+            <div class="field-row two-column-row" data-type="two-column">
+                <div class="two-column-container">
+                    <div class="column">
+                        <input type="hidden" name="field_type[]" value="text">
+                        <input type="text" name="field_label[]" placeholder="Left Column Label"
+                            value="<?php echo esc_attr($field['label'][0] ?? ''); ?>">
+                        <label>
+                            <input type="checkbox" name="field_required[]" value="1"
+                                <?php checked(isset($field['required'][0]) && $field['required'][0]); ?>>
+                            Required
+                        </label>
+                    </div>
+                    <div class="column">
+                        <input type="hidden" name="field_type[]" value="text">
+                        <input type="text" name="field_label[]" placeholder="Right Column Label"
+                            value="<?php echo esc_attr($field['label'][1] ?? ''); ?>">
+                        <label>
+                            <input type="checkbox" name="field_required[]" value="1"
+                                <?php checked(isset($field['required'][1]) && $field['required'][1]); ?>>
+                            Required
+                        </label>
+                    </div>
+                </div>
+                <button type="button" class="remove-field">Remove</button>
+            </div>
+        <?php
+        } else {
+            // Render existing field types
+        ?>
+            <div class="field-row" data-type="<?php echo esc_attr($field_type); ?>">
+                <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field_type); ?>">
+                <input type="text" name="field_label[]" placeholder="Field Label"
+                    value="<?php echo esc_attr($field['label'] ?? ''); ?>">
+                <label>
+                    <input type="checkbox" name="field_required[]" value="1"
+                        <?php checked(isset($field['required']) && $field['required']); ?>>
+                    Required
+                </label>
+
+                <!-- Customer email option - will be shown/hidden via CSS -->
+                <label class="customer-email-option">
+                    <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
+                        <?php checked($customer_email_field, $field_id); ?>>
+                    <span style="color:#0073aa;">Customer Email</span>
+                </label>
+
+                <button type="button" class="remove-field">Remove</button>
+            </div>
+        <?php
+        }
+    }
 
     public function render_payment_settings($post)
     {
         $amount = get_post_meta($post->ID, '_payment_amount', true);
         $currency = get_post_meta($post->ID, '_payment_currency', true) ?: 'usd';
-    ?>
+        ?>
         <div class="payment-settings">
             <p>
                 <label>Payment Amount:</label>
@@ -257,12 +316,26 @@ class PFB_Admin
         if (isset($_POST['field_type']) && is_array($_POST['field_type'])) {
             foreach ($_POST['field_type'] as $index => $type) {
                 $label = sanitize_text_field($_POST['field_label'][$index] ?? '');
-                $fields[] = array(
-                    'type' => sanitize_text_field($type),
-                    'label' => $label,
-                    'id' => sanitize_title($label),
-                    'required' => isset($_POST['field_required'][$index])
-                );
+                $required = isset($_POST['field_required'][$index]) ? true : false;
+
+                if ($type === 'two-column') {
+                    // Handle two-column fields
+                    $fields[] = array(
+                        'type' => 'two-column',
+                        'label' => [
+                            sanitize_text_field($_POST['field_label'][$index * 2]), // Left label
+                            sanitize_text_field($_POST['field_label'][$index * 2 + 1]) // Right label
+                        ],
+                        'required' => [$required, $required] // Both columns required status
+                    );
+                    $index++; // Skip the next index as we are handling two labels
+                } else {
+                    $fields[] = array(
+                        'type' => sanitize_text_field($type),
+                        'label' => $label,
+                        'required' => $required
+                    );
+                }
             }
         }
         update_post_meta($post_id, '_form_fields', $fields);
