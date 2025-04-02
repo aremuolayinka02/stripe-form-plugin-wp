@@ -207,7 +207,13 @@ class PFB_Admin
     private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
     {
         $field_type = isset($field['type']) ? $field['type'] : 'text';
-        $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
+
+        // Fix: Only create field_id for non-two-column fields
+        $field_id = '';
+        if ($field_type !== 'two-column' && isset($field['label'])) {
+            // Make sure we're passing a string to sanitize_title
+            $field_id = sanitize_title(is_array($field['label']) ? '' : $field['label']);
+        }
 
         if ($field_type === 'two-column') {
         ?>
