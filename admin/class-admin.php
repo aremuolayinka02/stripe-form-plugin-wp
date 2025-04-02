@@ -264,7 +264,7 @@ class PFB_Admin
 
         // Output existing fields as JSON for JavaScript
         echo '<script>window.existingFormFields = ' . (empty($form_fields) ? '[]' : json_encode($form_fields)) . ';</script>';
-        ?>
+    ?>
         <div class="form-builder-container">
             <div class="email-field-notice">
                 <p><strong>Important:</strong> To enable Stripe email receipts, add an Email field to your form and check the "Customer Email" option for that field.</p>
@@ -288,7 +288,7 @@ class PFB_Admin
             <!-- Debug button -->
             <button type="button" id="debug-form-data" class="button" style="margin-top: 15px;">Debug Form Data</button>
         </div>
-        <?php
+    <?php
     }
 
     public function render_payment_settings($post)
@@ -637,18 +637,18 @@ class PFB_Admin
 
         if (!$submissions_exists || !$form_fields_exists) {
             // Tables don't exist, create them
-            $plugin = payment_form_builder();
-            if (method_exists($plugin, 'create_tables')) {
-                $plugin->create_tables();
+                $plugin = payment_form_builder();
+                if (method_exists($plugin, 'create_tables')) {
+                    $plugin->create_tables();
 
-                if (!$submissions_exists && $wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") == $submissions_table) {
-                    $updates[] = 'Created submissions table';
-                }
+                    if (!$submissions_exists && $wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") == $submissions_table) {
+                        $updates[] = 'Created submissions table';
+                    }
 
-                if (!$form_fields_exists && $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table) {
-                    $updates[] = 'Created form fields table';
+                    if (!$form_fields_exists && $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table) {
+                        $updates[] = 'Created form fields table';
+                    }
                 }
-            }
         }
 
         // Check for mode column in submissions table
@@ -671,6 +671,17 @@ class PFB_Admin
                     $updates[] = 'Failed to add "mode" column: ' . $wpdb->last_error;
                 }
             }
+
+            $email_sent_exists = $wpdb->get_results("SHOW COLUMNS FROM {$submissions_table} LIKE 'email_sent'");
+        if (empty($email_sent_exists)) {
+            $result = $wpdb->query("ALTER TABLE {$submissions_table} ADD COLUMN email_sent TINYINT(1) DEFAULT 0 AFTER payment_status");
+            if ($result !== false) {
+                $updates[] = 'Added "email_sent" column';
+            } else {
+                $success = false;
+                $updates[] = 'Failed to add "email_sent" column: ' . $wpdb->last_error;
+            }
+        }
 
             // Check for payment_intent index
             $index_exists = $wpdb->get_results("SHOW INDEX FROM {$submissions_table} WHERE Key_name = 'payment_intent'");

@@ -53,6 +53,93 @@ class Payment_Form_Builder
         }
     }
 
+    // Register the cron schedule on plugin activation
+    public function register_cron_schedules()
+    {
+        if (!wp_next_scheduled('pfb_check_missed_emails')) {
+            wp_schedule_event(time(), 'hourly', 'pfb_check_missed_emails');
+        }
+    }
+
+    // Unregister the cron schedule on plugin deactivation
+    public function unregister_cron_schedules()
+    {
+        $timestamp = wp_next_scheduled('pfb_check_missed_emails');
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, 'pfb_check_missed_emails');
+        }
+    }
+
+    // Process missed emails
+    public function process_missed_emails()
+    {
+        global $wpdb;
+
+        error_log('Running scheduled check for missed payment emails');
+
+        // Find completed payments without emails sent
+        $table_name = $wpdb->prefix . 'pfb_submissions';
+        $completed_payments = $wpdb->get_results(
+            "SELECT * FROM $table_name 
+        WHERE payment_status = 'completed' 
+        AND (email_sent = 0 OR email_sent IS NULL)
+        LIMIT 50"  // Process in batches to avoid timeouts
+        );
+
+        if (empty($completed_payments)) {
+            error_log('No missed emails found');
+            return;
+        }
+
+        error_log('Found ' . count($completed_payments) . ' payments missing email notifications');
+
+        // Load the form handler class
+        if (!class_exists('PFB_Form_Handler')) {
+            require_once PFB_PLUGIN_DIR . 'includes/class-form-handler.php';
+        }
+
+        $form_handler = new PFB_Form_Handler();
+
+        foreach ($completed_payments as $payment) {
+            error_log("Processing missed email for payment ID: {$payment->id}");
+
+            // Skip if no submission data
+            if (empty($payment->submission_data)) {
+                error_log("No submission data for payment ID: {$payment->id}, skipping");
+                $wpdb->update(
+                    $table_name,
+                    ['email_sent' => 1],  // Mark as processed to avoid repeated attempts
+                    ['id' => $payment->id],
+                    ['%d'],
+                    ['%d']
+                );
+                continue;
+            }
+
+            $submission_data = json_decode($payment->submission_data, true);
+
+            // Send the email
+            if (method_exists($form_handler, 'send_admin_notification')) {
+                $email_result = $form_handler->send_admin_notification($payment->id, $payment->form_id, $submission_data);
+
+                if ($email_result) {
+                    error_log("Successfully sent missed email for payment ID: {$payment->id}");
+                } else {
+                    error_log("Failed to send missed email for payment ID: {$payment->id}");
+                }
+            }
+
+            // Mark as processed even if email fails to avoid repeated attempts
+            $wpdb->update(
+                $table_name,
+                ['email_sent' => 1],
+                ['id' => $payment->id],
+                ['%d'],
+                ['%d']
+            );
+        }
+    }
+
     private function check_requirements()
     {
         // Check PHP version
@@ -104,6 +191,9 @@ class Payment_Form_Builder
             // Set default options
             $this->set_default_options();
 
+            // Register cron schedule
+        $this->register_cron_schedules();
+
             // Flush rewrite rules
             flush_rewrite_rules();
         } catch (Exception $e) {
@@ -114,6 +204,10 @@ class Payment_Form_Builder
 
     public function deactivate()
     {
+        // Unregister cron schedule
+    $this->unregister_cron_schedules();
+
+    
         flush_rewrite_rules();
     }
 
@@ -144,20 +238,20 @@ class Payment_Form_Builder
                 $submissions_sql = "CREATE TABLE $submissions_table (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 form_id bigint(20) NOT NULL,
-                submission_data longtext NOT NULL,
+                payment_intent varchar(255) NOT NULL,
                 payment_status varchar(50) NOT NULL,
-                payment_intent varchar(255),
+                email_sent TINYINT(1) DEFAULT 0,
                 amount decimal(10,2),
                 currency varchar(3),
                 mode varchar(10),
+                submission_data longtext NOT NULL,
                 created_at datetime NOT NULL,
-                updated_at datetime,
+                updated_at datetime NOT NULL,
                 PRIMARY KEY  (id),
                 KEY form_id (form_id),
                 KEY payment_status (payment_status),
                 KEY payment_intent (payment_intent),
-                KEY mode (mode),
-                KEY created_at (created_at)
+                KEY mode (mode)
             ) $charset_collate;";
 
                 dbDelta($submissions_sql);
@@ -219,6 +313,10 @@ class Payment_Form_Builder
             }
             new PFB_Public();
             new PFB_Form_Handler();
+
+
+            // Register cron hook
+        add_action('pfb_check_missed_emails', array($this, 'process_missed_emails'));
         } catch (Exception $e) {
             $this->errors[] = 'Plugin initialization error: ' . $e->getMessage();
             error_log('Payment Form Builder initialization error: ' . $e->getMessage());
@@ -243,6 +341,8 @@ class Payment_Form_Builder
             require_once $path;
         }
     }
+
+    
 }
 
 // Initialize plugin
@@ -252,6 +352,7 @@ if (!function_exists('payment_form_builder')) {
         return Payment_Form_Builder::get_instance();
     }
 }
+
 
 // Wrap initialization in try-catch
 try {

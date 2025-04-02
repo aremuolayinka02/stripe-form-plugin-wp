@@ -64,9 +64,35 @@ class PFB_Orders_Table extends WP_List_Table
             'amount'        => __('Amount', 'payment-form-builder'),
             'payment_intent' => __('Transaction ID', 'payment-form-builder'),
             'status'        => __('Status', 'payment-form-builder'),
+            'email_status'  => __('Email', 'payment-form-builder'),
             'mode'          => __('Mode', 'payment-form-builder'),
             'date'          => __('Date', 'payment-form-builder')
         ];
+    }
+
+    protected function column_email_status($item)
+    {
+        if ($item->payment_status !== 'completed') {
+            return '<span class="email-status-na">N/A</span>';
+        }
+
+        $email_sent = isset($item->email_sent) ? (bool)$item->email_sent : false;
+
+        if ($email_sent) {
+            return '<span class="email-status-sent">Sent</span>';
+        } else {
+            // Add a button to manually send the email
+            $send_url = wp_nonce_url(
+                add_query_arg(
+                    ['action' => 'send_email', 'order' => $item->id],
+                    admin_url('edit.php?post_type=payment_form&page=pfb-orders')
+                ),
+                'send_email_' . $item->id
+            );
+
+            return '<span class="email-status-pending">Pending</span> ' .
+                '<a href="' . esc_url($send_url) . '" class="button button-small send-email-button">Send Now</a>';
+        }
     }
 
     public function get_sortable_columns()
@@ -199,6 +225,57 @@ class PFB_Orders_Table extends WP_List_Table
                             // Add error message
                             add_action('admin_notices', function () use ($e) {
                                 echo '<div class="notice notice-error is-dismissible"><p>Error checking payment status: ' . esc_html($e->getMessage()) . '</p></div>';
+                            });
+                        }
+                    }
+                }
+
+                // Redirect back to orders page
+                wp_redirect(remove_query_arg(['action', 'order', '_wpnonce']));
+                exit;
+            }
+        }
+
+        if ($action === 'send_email') {
+            $order_id = isset($_GET['order']) ? intval($_GET['order']) : 0;
+
+            if ($order_id && isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'send_email_' . $order_id)) {
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'pfb_submissions';
+
+                $order = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $order_id));
+
+                if ($order && $order->payment_status === 'completed') {
+                    // Load the form handler class
+                    if (!class_exists('PFB_Form_Handler')) {
+                        require_once PFB_PLUGIN_DIR . 'includes/class-form-handler.php';
+                    }
+
+                    $form_handler = new PFB_Form_Handler();
+                    $submission_data = json_decode($order->submission_data, true);
+
+                    // Send the email
+                    if (method_exists($form_handler, 'send_admin_notification')) {
+                        $email_result = $form_handler->send_admin_notification($order->id, $order->form_id, $submission_data);
+
+                        if ($email_result) {
+                            // Update the email_sent status
+                            $wpdb->update(
+                                $table_name,
+                                ['email_sent' => 1],
+                                ['id' => $order_id],
+                                ['%d'],
+                                ['%d']
+                            );
+
+                            // Add success message
+                            add_action('admin_notices', function () {
+                                echo '<div class="notice notice-success is-dismissible"><p>Email sent successfully.</p></div>';
+                            });
+                        } else {
+                            // Add error message
+                            add_action('admin_notices', function () {
+                                echo '<div class="notice notice-error is-dismissible"><p>Failed to send email. Check your email configuration.</p></div>';
                             });
                         }
                     }

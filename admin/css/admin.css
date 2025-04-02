@@ -579,3 +579,37 @@
     padding: 0;
     margin: 0;
 }
+
+
+/* Email status styles */
+.email-status-sent {
+    color: #5cb85c;
+    font-weight: bold;
+}
+
+.email-status-pending {
+    color: #f0ad4e;
+    font-weight: bold;
+}
+
+.email-status-na {
+    color: #999;
+    font-style: italic;
+}
+
+.send-email-button {
+    margin-left: 10px !important;
+    vertical-align: middle !important;
+    background-color: #f7f7f7 !important;
+    border-color: #ccc !important;
+    color: #555 !important;
+    font-size: 11px !important;
+    height: auto !important;
+    padding: 2px 8px !important;
+    line-height: 1.5 !important;
+}
+
+.send-email-button:hover {
+    background-color: #f0f0f0 !important;
+    border-color: #999 !important;
+}
