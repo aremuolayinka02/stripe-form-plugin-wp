@@ -205,15 +205,8 @@ class PFB_Admin
     }
 
     private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
-    {
+     {
         $field_type = isset($field['type']) ? $field['type'] : 'text';
-
-        // Fix: Only create field_id for non-two-column fields
-        $field_id = '';
-        if ($field_type !== 'two-column' && isset($field['label'])) {
-            // Make sure we're passing a string to sanitize_title
-            $field_id = sanitize_title(is_array($field['label']) ? '' : $field['label']);
-        }
 
         if ($field_type === 'two-column') {
         ?>
@@ -225,7 +218,7 @@ class PFB_Admin
                             value="<?php echo esc_attr($field['label'][0] ?? ''); ?>"
                             data-column="0">
                         <label>
-                            <input type="checkbox" name="field_required[]" value="1"
+                            <input type="checkbox" name="field_required[]" value="<?php echo $index; ?>"
                                 <?php checked(isset($field['required'][0]) && $field['required'][0]); ?>
                                 data-column="0">
                             Required
@@ -236,7 +229,7 @@ class PFB_Admin
                             value="<?php echo esc_attr($field['label'][1] ?? ''); ?>"
                             data-column="1">
                         <label>
-                            <input type="checkbox" name="field_required[]" value="1"
+                            <input type="checkbox" name="field_required[]" value="<?php echo $index + 1; ?>"
                                 <?php checked(isset($field['required'][1]) && $field['required'][1]); ?>
                                 data-column="1">
                             Required
@@ -247,13 +240,13 @@ class PFB_Admin
             </div>
         <?php
         } else {
-        ?>
+          ?>
             <div class="field-row" data-type="<?php echo esc_attr($field_type); ?>">
                 <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field_type); ?>">
                 <input type="text" name="field_label[]" placeholder="Field Label"
                     value="<?php echo esc_attr($field['label'] ?? ''); ?>">
                 <label>
-                    <input type="checkbox" name="field_required[]" value="1"
+                    <input type="checkbox" name="field_required[]" value="<?php echo $index; ?>"
                         <?php checked(isset($field['required']) && $field['required']); ?>>
                     Required
                 </label>
@@ -293,7 +286,7 @@ class PFB_Admin
                 </select>
             </p>
         </div>
-    <?php
+        <?php
     }
 
     public function render_shortcode_info($post)
@@ -320,59 +313,80 @@ class PFB_Admin
             return;
         }
 
-        // Save form fields
+        // Get the raw form data
+        $field_types = isset($_POST['field_type']) ? $_POST['field_type'] : array();
+        $field_labels = isset($_POST['field_label']) ? $_POST['field_label'] : array();
+        $field_required = isset($_POST['field_required']) ? $_POST['field_required'] : array();
+        $customer_email = isset($_POST['customer_email_field']) ? $_POST['customer_email_field'] : '';
+
+        // Debug log
+        error_log('Raw form data:');
+        error_log('Types: ' . print_r($field_types, true));
+        error_log('Labels: ' . print_r($field_labels, true));
+        error_log('Required: ' . print_r($field_required, true));
+        error_log('Customer Email: ' . print_r($customer_email, true));
+
+        // Process the form data into a structured array
         $fields = array();
-        if (isset($_POST['field_type']) && is_array($_POST['field_type'])) {
-            $field_types = $_POST['field_type'];
-            $field_labels = $_POST['field_label'];
-            $field_required = isset($_POST['field_required']) ? $_POST['field_required'] : array();
+        $label_index = 0;
 
-            $label_index = 0;
-            $required_index = 0;
+        foreach ($field_types as $index => $type) {
+            if ($type === 'two-column') {
+                // Two-column field
+                $left_label = isset($field_labels[$label_index]) ? sanitize_text_field($field_labels[$label_index]) : '';
+                $right_label = isset($field_labels[$label_index + 1]) ? sanitize_text_field($field_labels[$label_index + 1]) : '';
 
-            foreach ($field_types as $index => $type) {
-                if ($type === 'two-column') {
-                    // Handle two-column fields
-                    $fields[] = array(
-                        'type' => 'two-column',
-                        'label' => array(
-                            sanitize_text_field($field_labels[$label_index]),
-                            sanitize_text_field($field_labels[$label_index + 1])
-                        ),
-                        'required' => array(
-                            in_array($required_index, $field_required, false),
-                            in_array($required_index + 1, $field_required, false)
-                        )
-                    );
-                    $label_index += 2;
-                    $required_index += 2;
-                } else {
-                    // Handle regular fields
-                    $fields[] = array(
-                        'type' => sanitize_text_field($type),
-                        'label' => sanitize_text_field($field_labels[$label_index]),
-                        'required' => in_array($required_index, $field_required, false)
-                    );
-                    $label_index++;
-                    $required_index++;
+                // Check if each column is required
+                $left_required = in_array($label_index, $field_required);
+                $right_required = in_array($label_index + 1, $field_required);
+
+                $fields[] = array(
+                    'type' => 'two-column',
+                    'label' => array($left_label, $right_label),
+                    'required' => array($left_required, $right_required)
+                );
+
+                $label_index += 2; // Move past both labels
+            } else {
+                // Regular field
+                $label = isset($field_labels[$label_index]) ? sanitize_text_field($field_labels[$label_index]) : '';
+                $is_required = in_array($label_index, $field_required);
+
+                $field_data = array(
+                    'type' => sanitize_text_field($type),
+                    'label' => $label,
+                    'required' => $is_required
+                );
+
+                // Add customer_email flag for email fields
+                if ($type === 'email' && $customer_email === $label) {
+                    $field_data['customer_email'] = true;
                 }
+
+                $fields[] = $field_data;
+
+                $label_index++;
             }
         }
 
-        // Log the fields before saving
+        // Log the processed fields
         error_log('Saving form fields: ' . print_r($fields, true));
 
+        // Save the form fields
         update_post_meta($post_id, '_form_fields', $fields);
 
         // Save customer email field
-        if (isset($_POST['customer_email_field'])) {
-            update_post_meta($post_id, '_customer_email_field', sanitize_text_field($_POST['customer_email_field']));
+        if (!empty($customer_email)) {
+            update_post_meta($post_id, '_customer_email_field', sanitize_text_field($customer_email));
+        } else {
+            delete_post_meta($post_id, '_customer_email_field');
         }
 
         // Save payment settings
         if (isset($_POST['payment_amount'])) {
             update_post_meta($post_id, '_payment_amount', floatval($_POST['payment_amount']));
         }
+
         if (isset($_POST['payment_currency'])) {
             update_post_meta($post_id, '_payment_currency', sanitize_text_field($_POST['payment_currency']));
         }

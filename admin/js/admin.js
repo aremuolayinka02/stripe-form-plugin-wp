@@ -39,27 +39,32 @@ jQuery(document).ready(function ($) {
 
   // Add two-column field
   $(".add-two-column").on("click", function () {
+    const fieldCount = $(".field-row").length;
+    const currentIndex = fieldCount * 2; // Each field takes up 2 indices
+
     const html = `
-      <div class="field-row two-column-row" data-type="two-column">
-        <input type="hidden" name="field_type[]" value="two-column">
-        <div class="two-column-container">
-          <div class="column">
-            <input type="text" name="field_label[]" placeholder="Left Column Label" data-column="0">
-            <label>
-              <input type="checkbox" name="field_required[]" value="1" data-column="0">
-              Required
-            </label>
-          </div>
-          <div class="column">
-            <input type="text" name="field_label[]" placeholder="Right Column Label" data-column="1">
-            <label>
-              <input type="checkbox" name="field_required[]" value="1" data-column="1">
-              Required
-            </label>
-          </div>
-        </div>
-        <button type="button" class="remove-field">Remove</button>
-      </div>`;
+  <div class="field-row two-column-row" data-type="two-column">
+  <input type="hidden" name="field_type[]" value="two-column">
+  <div class="two-column-container">
+  <div class="column">
+  <input type="text" name="field_label[]" placeholder="Left Column Label" data-column="0">
+  <label>
+  <input type="checkbox" name="field_required[]" value="${currentIndex}" data-column="0">
+  Required
+  </label>
+  </div>
+  <div class="column">
+  <input type="text" name="field_label[]" placeholder="Right Column Label" data-column="1">
+  <label>
+  <input type="checkbox" name="field_required[]" value="${
+    currentIndex + 1
+  }" data-column="1">
+  Required
+  </label>
+  </div>
+  </div>
+  <button type="button" class="remove-field">Remove</button>
+  </div>`;
 
     $(".form-fields-container").append(html);
   });
