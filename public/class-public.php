@@ -8,7 +8,7 @@ class PFB_Public
     }
 
     public function render_form($atts)
-    {
+    {       
         $atts = shortcode_atts(array(
             'id' => 0
         ), $atts);
@@ -38,7 +38,7 @@ class PFB_Public
         $currency = get_post_meta($atts['id'], '_payment_currency', true);
 
         ob_start();
-?>
+        ?>
         <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
             <?php foreach ($form_fields as $field): ?>
                 <?php if ($field['type'] === 'two-column'): ?>
@@ -94,7 +94,7 @@ class PFB_Public
 
             <button type="submit">Pay <?php echo esc_html($amount . ' ' . strtoupper($currency)); ?></button>
         </form>
-<?php
+        <?php
         return ob_get_clean();
     }
 

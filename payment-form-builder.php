@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Payment Form Builder
  * Description: Create custom forms with Stripe payments
- * Version: 1.2.0
+ * Version: 1.0.0
  * Author: Olayinka Aremu
  * Text Domain: payment-form-builder
  */

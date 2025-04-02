@@ -202,7 +202,7 @@ class PFB_Admin
 
         // Output existing fields as JSON for JavaScript
         echo '<script>window.existingFormFields = ' . (empty($form_fields) ? '[]' : json_encode($form_fields)) . ';</script>';
-        ?>
+?>
         <div class="form-builder-container">
             <div class="email-field-notice">
                 <p><strong>Important:</strong> To enable Stripe email receipts, add an Email field to your form and check the "Customer Email" option for that field.</p>
@@ -223,16 +223,10 @@ class PFB_Admin
             <!-- Hidden input that will hold our JSON data - CRITICAL -->
             <input type="hidden" name="form_fields_json" id="form-fields-json" value="">
 
-            <!-- Debug info -->
-            <div class="form-builder-debug" style="margin-top: 20px; padding: 10px; background: #f8f8f8; border: 1px solid #ddd; display: none;">
-                <h4>Debug Information</h4>
-                <p>Fields Count: <span id="debug-fields-count">0</span></p>
-                <p>JSON Data:
-                <pre id="debug-json-data"></pre>
-                </p>
-            </div>
+            <!-- Debug button -->
+            <button type="button" id="debug-form-data" class="button" style="margin-top: 15px;">Debug Form Data</button>
         </div>
-            <?php
+    <?php
     }
 
     public function render_payment_settings($post)
@@ -294,7 +288,24 @@ class PFB_Admin
 
         if (empty($fields_json)) {
             error_log('No form fields data received. POST keys: ' . implode(', ', array_keys($_POST)));
-            return;
+
+            // FALLBACK: Create a default field if none exists
+            $fields = [
+                [
+                    'type' => 'text',
+                    'label' => 'Name',
+                    'required' => true
+                ]
+            ];
+            $fields_json = json_encode($fields);
+            error_log('Using fallback field data: ' . $fields_json);
+        } else {
+            $fields = json_decode($fields_json, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                error_log('Invalid JSON data: ' . json_last_error_msg());
+                return;
+            }
         }
 
         global $wpdb;
@@ -316,21 +327,6 @@ class PFB_Admin
                 error_log('Form fields table could not be created. Check database permissions.');
                 return;
             }
-        }
-
-        // Get form fields from JSON
-        $fields_json = isset($_POST['form_fields_json']) ? stripslashes($_POST['form_fields_json']) : '';
-
-        if (empty($fields_json)) {
-            error_log('No form fields data received.');
-            return;
-        }
-
-        $fields = json_decode($fields_json, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log('Invalid JSON data: ' . json_last_error_msg());
-            return;
         }
 
         // Log the received fields
@@ -720,20 +716,12 @@ class PFB_Admin
             PFB_VERSION
         );
 
-        wp_enqueue_script(
-            'pfb-admin',
-            PFB_PLUGIN_URL . 'admin/js/admin.js',
-            array('jquery', 'jquery-ui-sortable'),
-            PFB_VERSION,
-            true
-        );
-
-        // Add the new form builder script
+        // Enqueue the form builder script
         wp_enqueue_script(
             'pfb-form-builder',
             PFB_PLUGIN_URL . 'admin/js/form-builder.js',
             array('jquery', 'jquery-ui-sortable'),
-            PFB_VERSION,
+            PFB_VERSION . '.' . time(), // Add timestamp to prevent caching during development
             true
         );
     }
