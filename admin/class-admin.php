@@ -24,6 +24,8 @@ class PFB_Admin
         // Handle database repair
         add_action('admin_init', array($this, 'handle_database_repair'));
 
+        add_action('delete_post', array($this, 'delete_form_fields'));
+
         add_action('add_meta_boxes', array($this, 'remove_unwanted_meta_boxes'), 99);
     }
 
@@ -62,6 +64,7 @@ class PFB_Admin
         register_post_type('payment_form', $args);
     }
 
+
     public function handle_database_repair()
     {
         if (
@@ -69,38 +72,44 @@ class PFB_Admin
             isset($_POST['pfb_repair_nonce']) &&
             wp_verify_nonce($_POST['pfb_repair_nonce'], 'pfb_repair_database')
         ) {
-            $result = $this->repair_database();
+            // Create the main plugin instance to access create_tables
+            $plugin = payment_form_builder();
 
-            if (is_array($result)) {
-                if ($result['success']) {
-                    add_action('admin_notices', function () use ($result) {
-                        echo '<div class="notice notice-success is-dismissible">';
-                        echo '<p><strong>Database repair completed successfully.</strong></p>';
-                        if (!empty($result['updates'])) {
-                            echo '<ul>';
-                            foreach ($result['updates'] as $update) {
-                                echo '<li>' . esc_html($update) . '</li>';
-                            }
-                            echo '</ul>';
-                        }
-                        echo '</div>';
-                    });
-                } else {
-                    add_action('admin_notices', function () use ($result) {
-                        echo '<div class="notice notice-error is-dismissible">';
-                        echo '<p><strong>Database repair encountered errors:</strong></p>';
-                        if (!empty($result['updates'])) {
-                            echo '<ul>';
-                            foreach ($result['updates'] as $update) {
-                                echo '<li>' . esc_html($update) . '</li>';
-                            }
-                            echo '</ul>';
-                        }
-                        echo '</div>';
-                    });
-                }
+            // Call the create_tables method
+            if (method_exists($plugin, 'create_tables')) {
+                $plugin->create_tables();
+
+                // Add success message
+                add_action('admin_notices', function () {
+                    echo '<div class="notice notice-success is-dismissible">';
+                    echo '<p><strong>Database tables have been created/repaired successfully.</strong></p>';
+                    echo '</div>';
+                });
+            } else {
+                // Add error message
+                add_action('admin_notices', function () {
+                    echo '<div class="notice notice-error is-dismissible">';
+                    echo '<p><strong>Could not repair database: create_tables method not found.</strong></p>';
+                    echo '</div>';
+                });
             }
         }
+    }
+
+    public function delete_form_fields($post_id)
+    {
+        if (get_post_type($post_id) !== 'payment_form') {
+            return;
+        }
+
+        global $wpdb;
+        $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
+
+        $wpdb->delete(
+            $form_fields_table,
+            array('form_id' => $post_id),
+            array('%d')
+        );
     }
 
     public function add_meta_boxes()
@@ -166,18 +175,34 @@ class PFB_Admin
         }
     }
 
-    // Update in class-admin.php in the render_form_builder method
     public function render_form_builder($post)
     {
         wp_nonce_field('save_form_builder', 'form_builder_nonce');
 
-        $form_fields = get_post_meta($post->ID, '_form_fields', true);
+        global $wpdb;
+        $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
+
+        // Check if the table exists
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table;
+
+        if ($table_exists) {
+            // Get form fields from the database
+            $form_fields_json = $wpdb->get_var($wpdb->prepare(
+                "SELECT field_data FROM $form_fields_table WHERE form_id = %d",
+                $post->ID
+            ));
+
+            $form_fields = $form_fields_json ? json_decode($form_fields_json, true) : array();
+        } else {
+            // Fall back to post meta if table doesn't exist
+            $form_fields = get_post_meta($post->ID, '_form_fields', true);
+        }
+
         $customer_email_field = get_post_meta($post->ID, '_customer_email_field', true);
 
-        // Log the retrieved form fields
-        error_log('Retrieved form fields: ' . print_r($form_fields, true));
-
-?>
+        // Output existing fields as JSON for JavaScript
+        echo '<script>window.existingFormFields = ' . (empty($form_fields) ? '[]' : json_encode($form_fields)) . ';</script>';
+        ?>
         <div class="form-builder-container">
             <div class="email-field-notice">
                 <p><strong>Important:</strong> To enable Stripe email receipts, add an Email field to your form and check the "Customer Email" option for that field.</p>
@@ -185,91 +210,36 @@ class PFB_Admin
             </div>
 
             <div class="field-types">
-                <button type="button" class="add-field" data-type="text">Add Text Field</button>
-                <button type="button" class="add-field" data-type="email">Add Email Field</button>
-                <button type="button" class="add-field" data-type="textarea">Add Textarea</button>
-                <button type="button" class="add-two-column">Add Two-Column Fields</button>
+                <button type="button" id="add-text-field" class="add-field-button">Add Text Field</button>
+                <button type="button" id="add-email-field" class="add-field-button">Add Email Field</button>
+                <button type="button" id="add-textarea-field" class="add-field-button">Add Textarea</button>
+                <button type="button" id="add-two-column-field" class="add-field-button">Add Two-Column Fields</button>
             </div>
 
-            <div class="form-fields-container">
-                <?php
-                if (is_array($form_fields)) {
-                    foreach ($form_fields as $index => $field) {
-                        $this->render_field_row($field, $index, $customer_email_field);
-                    }
-                }
-                ?>
+            <div id="form-fields-container" class="form-fields-container">
+                <!-- Fields will be added here dynamically by JavaScript -->
+            </div>
+
+            <!-- Hidden input that will hold our JSON data - CRITICAL -->
+            <input type="hidden" name="form_fields_json" id="form-fields-json" value="">
+
+            <!-- Debug info -->
+            <div class="form-builder-debug" style="margin-top: 20px; padding: 10px; background: #f8f8f8; border: 1px solid #ddd; display: none;">
+                <h4>Debug Information</h4>
+                <p>Fields Count: <span id="debug-fields-count">0</span></p>
+                <p>JSON Data:
+                <pre id="debug-json-data"></pre>
+                </p>
             </div>
         </div>
-        <?php
-    }
-
-    private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
-     {
-        $field_type = isset($field['type']) ? $field['type'] : 'text';
-
-        if ($field_type === 'two-column') {
-        ?>
-            <div class="field-row two-column-row" data-type="two-column">
-                <input type="hidden" name="field_type[]" value="two-column">
-                <div class="two-column-container">
-                    <div class="column">
-                        <input type="text" name="field_label[]" placeholder="Left Column Label"
-                            value="<?php echo esc_attr($field['label'][0] ?? ''); ?>"
-                            data-column="0">
-                        <label>
-                            <input type="checkbox" name="field_required[]" value="<?php echo $index; ?>"
-                                <?php checked(isset($field['required'][0]) && $field['required'][0]); ?>
-                                data-column="0">
-                            Required
-                        </label>
-                    </div>
-                    <div class="column">
-                        <input type="text" name="field_label[]" placeholder="Right Column Label"
-                            value="<?php echo esc_attr($field['label'][1] ?? ''); ?>"
-                            data-column="1">
-                        <label>
-                            <input type="checkbox" name="field_required[]" value="<?php echo $index + 1; ?>"
-                                <?php checked(isset($field['required'][1]) && $field['required'][1]); ?>
-                                data-column="1">
-                            Required
-                        </label>
-                    </div>
-                </div>
-                <button type="button" class="remove-field">Remove</button>
-            </div>
-        <?php
-        } else {
-          ?>
-            <div class="field-row" data-type="<?php echo esc_attr($field_type); ?>">
-                <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field_type); ?>">
-                <input type="text" name="field_label[]" placeholder="Field Label"
-                    value="<?php echo esc_attr($field['label'] ?? ''); ?>">
-                <label>
-                    <input type="checkbox" name="field_required[]" value="<?php echo $index; ?>"
-                        <?php checked(isset($field['required']) && $field['required']); ?>>
-                    Required
-                </label>
-
-                <?php if ($field_type === 'email'): ?>
-                    <label class="customer-email-option">
-                        <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field['label'] ?? ''); ?>"
-                            <?php checked($customer_email_field, ($field['label'] ?? '')); ?>>
-                        <span style="color:#0073aa;">Customer Email</span>
-                    </label>
-                <?php endif; ?>
-
-                <button type="button" class="remove-field">Remove</button>
-            </div>
-        <?php
-        }
+            <?php
     }
 
     public function render_payment_settings($post)
     {
         $amount = get_post_meta($post->ID, '_payment_amount', true);
         $currency = get_post_meta($post->ID, '_payment_currency', true) ?: 'usd';
-        ?>
+    ?>
         <div class="payment-settings">
             <p>
                 <label>Payment Amount:</label>
@@ -286,7 +256,7 @@ class PFB_Admin
                 </select>
             </p>
         </div>
-        <?php
+    <?php
     }
 
     public function render_shortcode_info($post)
@@ -302,93 +272,188 @@ class PFB_Admin
     public function save_form_meta($post_id)
     {
         if (get_post_type($post_id) !== 'payment_form') {
+            error_log('Not a payment form post type');
             return;
         }
 
         if (!isset($_POST['form_builder_nonce']) || !wp_verify_nonce($_POST['form_builder_nonce'], 'save_form_builder')) {
+            error_log('Nonce verification failed');
             return;
         }
 
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            error_log('Doing autosave, skipping');
             return;
         }
 
-        // Get the raw form data
-        $field_types = isset($_POST['field_type']) ? $_POST['field_type'] : array();
-        $field_labels = isset($_POST['field_label']) ? $_POST['field_label'] : array();
-        $field_required = isset($_POST['field_required']) ? $_POST['field_required'] : array();
-        $customer_email = isset($_POST['customer_email_field']) ? $_POST['customer_email_field'] : '';
+        // Log all POST data for debugging
+        error_log('POST data received: ' . print_r($_POST, true));
 
-        // Debug log
-        error_log('Raw form data:');
-        error_log('Types: ' . print_r($field_types, true));
-        error_log('Labels: ' . print_r($field_labels, true));
-        error_log('Required: ' . print_r($field_required, true));
-        error_log('Customer Email: ' . print_r($customer_email, true));
+        // Get form fields from JSON
+        $fields_json = isset($_POST['form_fields_json']) ? stripslashes($_POST['form_fields_json']) : '';
 
-        // Process the form data into a structured array
-        $fields = array();
-        $label_index = 0;
+        if (empty($fields_json)) {
+            error_log('No form fields data received. POST keys: ' . implode(', ', array_keys($_POST)));
+            return;
+        }
 
-        foreach ($field_types as $index => $type) {
-            if ($type === 'two-column') {
-                // Two-column field
-                $left_label = isset($field_labels[$label_index]) ? sanitize_text_field($field_labels[$label_index]) : '';
-                $right_label = isset($field_labels[$label_index + 1]) ? sanitize_text_field($field_labels[$label_index + 1]) : '';
+        global $wpdb;
+        $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
 
-                // Check if each column is required
-                $left_required = in_array($label_index, $field_required);
-                $right_required = in_array($label_index + 1, $field_required);
+        // Check if the table exists
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table;
 
-                $fields[] = array(
-                    'type' => 'two-column',
-                    'label' => array($left_label, $right_label),
-                    'required' => array($left_required, $right_required)
-                );
+        if (!$table_exists) {
+            // Table doesn't exist, try to create it
+            $plugin = payment_form_builder();
+            if (method_exists($plugin, 'create_tables')) {
+                $plugin->create_tables();
+                // Check again if the table was created
+                $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table;
+            }
 
-                $label_index += 2; // Move past both labels
-            } else {
-                // Regular field
-                $label = isset($field_labels[$label_index]) ? sanitize_text_field($field_labels[$label_index]) : '';
-                $is_required = in_array($label_index, $field_required);
-
-                $field_data = array(
-                    'type' => sanitize_text_field($type),
-                    'label' => $label,
-                    'required' => $is_required
-                );
-
-                // Add customer_email flag for email fields
-                if ($type === 'email' && $customer_email === $label) {
-                    $field_data['customer_email'] = true;
-                }
-
-                $fields[] = $field_data;
-
-                $label_index++;
+            if (!$table_exists) {
+                error_log('Form fields table could not be created. Check database permissions.');
+                return;
             }
         }
 
-        // Log the processed fields
-        error_log('Saving form fields: ' . print_r($fields, true));
+        // Get form fields from JSON
+        $fields_json = isset($_POST['form_fields_json']) ? stripslashes($_POST['form_fields_json']) : '';
 
-        // Save the form fields
-        update_post_meta($post_id, '_form_fields', $fields);
-
-        // Save customer email field
-        if (!empty($customer_email)) {
-            update_post_meta($post_id, '_customer_email_field', sanitize_text_field($customer_email));
-        } else {
-            delete_post_meta($post_id, '_customer_email_field');
+        if (empty($fields_json)) {
+            error_log('No form fields data received.');
+            return;
         }
 
-        // Save payment settings
+        $fields = json_decode($fields_json, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log('Invalid JSON data: ' . json_last_error_msg());
+            return;
+        }
+
+        // Log the received fields
+        error_log('Received form fields: ' . $fields_json);
+
+        // Validate fields
+        $valid = true;
+        $customer_email = '';
+
+        foreach ($fields as $field) {
+            if (empty($field['type'])) {
+                error_log('Invalid field: missing type');
+                $valid = false;
+                break;
+            }
+
+            if ($field['type'] === 'two-column') {
+                if (!isset($field['label']) || !is_array($field['label']) || count($field['label']) !== 2) {
+                    error_log('Invalid two-column field: incorrect label format');
+                    $valid = false;
+                    break;
+                }
+
+                if (!isset($field['required']) || !is_array($field['required']) || count($field['required']) !== 2) {
+                    error_log('Invalid two-column field: incorrect required format');
+                    $valid = false;
+                    break;
+                }
+            } else {
+                if (!isset($field['label']) || empty($field['label'])) {
+                    error_log('Invalid field: missing label');
+                    $valid = false;
+                    break;
+                }
+
+                if (!isset($field['required'])) {
+                    error_log('Invalid field: missing required status');
+                    $valid = false;
+                    break;
+                }
+            }
+
+            // Track customer email field
+            if ($field['type'] === 'email' && isset($field['customer_email']) && $field['customer_email']) {
+                $customer_email = $field['label'];
+            }
+        }
+
+        if (!$valid) {
+            error_log('Form validation failed. Not saving to database.');
+            return;
+        }
+
+        // Save to database table
+        $field_data_json = json_encode($fields);
+
+        // Check if this form already has fields in the database
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM $form_fields_table WHERE form_id = %d",
+            $post_id
+        ));
+
+        if ($existing) {
+            // Update existing record
+            $result = $wpdb->update(
+                $form_fields_table,
+                array('field_data' => $field_data_json),
+                array('form_id' => $post_id),
+                array('%s'),
+                array('%d')
+            );
+
+            if ($result === false) {
+                error_log('Failed to update form fields: ' . $wpdb->last_error);
+            } else {
+                error_log('Successfully updated form fields for form ID: ' . $post_id);
+
+                // Log the saved data for verification
+                $saved_data = $wpdb->get_var($wpdb->prepare(
+                    "SELECT field_data FROM $form_fields_table WHERE form_id = %d",
+                    $post_id
+                ));
+                error_log('Verified saved data: ' . $saved_data);
+            }
+        } else {
+            // Insert new record
+            $result = $wpdb->insert(
+                $form_fields_table,
+                array(
+                    'form_id' => $post_id,
+                    'field_data' => $field_data_json
+                ),
+                array('%d', '%s')
+            );
+
+            if ($result === false) {
+                error_log('Failed to insert form fields: ' . $wpdb->last_error);
+            } else {
+                error_log('Successfully inserted form fields for form ID: ' . $post_id);
+
+                // Log the saved data for verification
+                $saved_data = $wpdb->get_var($wpdb->prepare(
+                    "SELECT field_data FROM $form_fields_table WHERE form_id = %d",
+                    $post_id
+                ));
+                error_log('Verified saved data: ' . $saved_data);
+            }
+        }
+
+        // Save payment settings in post meta
         if (isset($_POST['payment_amount'])) {
             update_post_meta($post_id, '_payment_amount', floatval($_POST['payment_amount']));
         }
 
         if (isset($_POST['payment_currency'])) {
             update_post_meta($post_id, '_payment_currency', sanitize_text_field($_POST['payment_currency']));
+        }
+
+        // Save customer email field reference in post meta for quick access
+        if (!empty($customer_email)) {
+            update_post_meta($post_id, '_customer_email_field', sanitize_text_field($customer_email));
+        } else {
+            delete_post_meta($post_id, '_customer_email_field');
         }
     }
 
@@ -487,47 +552,63 @@ class PFB_Admin
     public function repair_database()
     {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'pfb_submissions';
-
-        // Check if table exists
-        if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-            // Table doesn't exist, create it
-            $this->create_tables();
-            return true;
-        }
+        $submissions_table = $wpdb->prefix . 'pfb_submissions';
+        $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
 
         $updates = [];
         $success = true;
 
-        // Check for mode column
-        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'mode'");
-        if (empty($column_exists)) {
-            $result = $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN mode varchar(10) AFTER currency");
-            if ($result !== false) {
-                $updates[] = 'Added "mode" column';
+        // Check if tables exist
+        $submissions_exists = $wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") == $submissions_table;
+        $form_fields_exists = $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table;
 
-                // Set default value for existing records
-                $test_mode = get_option('pfb_test_mode', true);
-                $default_mode = $test_mode ? 'test' : 'live';
-                $wpdb->query("UPDATE {$table_name} SET mode = '{$default_mode}' WHERE mode IS NULL");
+        if (!$submissions_exists || !$form_fields_exists) {
+            // Tables don't exist, create them
+            $plugin = payment_form_builder();
+            if (method_exists($plugin, 'create_tables')) {
+                $plugin->create_tables();
 
-                // Add index
-                $wpdb->query("ALTER TABLE {$table_name} ADD INDEX mode (mode)");
-            } else {
-                $success = false;
-                $updates[] = 'Failed to add "mode" column: ' . $wpdb->last_error;
+                if (!$submissions_exists && $wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") == $submissions_table) {
+                    $updates[] = 'Created submissions table';
+                }
+
+                if (!$form_fields_exists && $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table) {
+                    $updates[] = 'Created form fields table';
+                }
             }
         }
 
-        // Check for payment_intent index
-        $index_exists = $wpdb->get_results("SHOW INDEX FROM {$table_name} WHERE Key_name = 'payment_intent'");
-        if (empty($index_exists)) {
-            $result = $wpdb->query("ALTER TABLE {$table_name} ADD INDEX payment_intent (payment_intent)");
-            if ($result !== false) {
-                $updates[] = 'Added index for "payment_intent" column';
-            } else {
-                $success = false;
-                $updates[] = 'Failed to add index for "payment_intent" column: ' . $wpdb->last_error;
+        // Check for mode column in submissions table
+        if ($submissions_exists) {
+            $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$submissions_table} LIKE 'mode'");
+            if (empty($column_exists)) {
+                $result = $wpdb->query("ALTER TABLE {$submissions_table} ADD COLUMN mode varchar(10) AFTER currency");
+                if ($result !== false) {
+                    $updates[] = 'Added "mode" column';
+
+                    // Set default value for existing records
+                    $test_mode = get_option('pfb_test_mode', true);
+                    $default_mode = $test_mode ? 'test' : 'live';
+                    $wpdb->query("UPDATE {$submissions_table} SET mode = '{$default_mode}' WHERE mode IS NULL");
+
+                    // Add index
+                    $wpdb->query("ALTER TABLE {$submissions_table} ADD INDEX mode (mode)");
+                } else {
+                    $success = false;
+                    $updates[] = 'Failed to add "mode" column: ' . $wpdb->last_error;
+                }
+            }
+
+            // Check for payment_intent index
+            $index_exists = $wpdb->get_results("SHOW INDEX FROM {$submissions_table} WHERE Key_name = 'payment_intent'");
+            if (empty($index_exists)) {
+                $result = $wpdb->query("ALTER TABLE {$submissions_table} ADD INDEX payment_intent (payment_intent)");
+                if ($result !== false) {
+                    $updates[] = 'Added index for "payment_intent" column';
+                } else {
+                    $success = false;
+                    $updates[] = 'Failed to add index for "payment_intent" column: ' . $wpdb->last_error;
+                }
             }
         }
 
@@ -642,6 +723,15 @@ class PFB_Admin
         wp_enqueue_script(
             'pfb-admin',
             PFB_PLUGIN_URL . 'admin/js/admin.js',
+            array('jquery', 'jquery-ui-sortable'),
+            PFB_VERSION,
+            true
+        );
+
+        // Add the new form builder script
+        wp_enqueue_script(
+            'pfb-form-builder',
+            PFB_PLUGIN_URL . 'admin/js/form-builder.js',
             array('jquery', 'jquery-ui-sortable'),
             PFB_VERSION,
             true

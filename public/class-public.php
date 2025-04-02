@@ -15,7 +15,25 @@ class PFB_Public
 
         if (!$atts['id']) return '';
 
-        $form_fields = get_post_meta($atts['id'], '_form_fields', true);
+        global $wpdb;
+        $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
+
+        // Check if the table exists
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") == $form_fields_table;
+
+        if ($table_exists) {
+            // Get form fields from the database
+            $form_fields_json = $wpdb->get_var($wpdb->prepare(
+                "SELECT field_data FROM $form_fields_table WHERE form_id = %d",
+                $atts['id']
+            ));
+
+            $form_fields = $form_fields_json ? json_decode($form_fields_json, true) : array();
+        } else {
+            // Fall back to post meta if table doesn't exist
+            $form_fields = get_post_meta($atts['id'], '_form_fields', true);
+        }
+
         $amount = get_post_meta($atts['id'], '_payment_amount', true);
         $currency = get_post_meta($atts['id'], '_payment_currency', true);
 

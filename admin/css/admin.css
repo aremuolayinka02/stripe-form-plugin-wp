@@ -252,3 +252,269 @@
 .field-types button.add-two-column:hover {
   background-color: #e0f0ff;
 }
+
+/**
+ * Payment Form Builder - Admin CSS
+ * 
+ * Styles for the form builder interface in the WordPress admin.
+ */
+
+/* Form Builder Container */
+.form-builder-container {
+    margin: 20px 0;
+    padding: 0;
+}
+
+/* Email Field Notice */
+.email-field-notice {
+    background-color: #f8f8f8;
+    border-left: 4px solid #0073aa;
+    padding: 10px 15px;
+    margin-bottom: 20px;
+}
+
+/* Field Types Buttons */
+.field-types {
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.add-field-button {
+    background-color: #0073aa;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.2s;
+}
+
+.add-field-button:hover {
+    background-color: #005a87;
+}
+
+/* Form Fields Container */
+#form-fields-container {
+    margin-bottom: 20px;
+    min-height: 50px;
+    border: 1px dashed #ccc;
+    padding: 10px;
+    background-color: #fafafa;
+}
+
+#form-fields-container:empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100px;
+}
+
+#form-fields-container:empty:before {
+    content: 'Drag and drop fields here or use the buttons above to add fields';
+    color: #999;
+    font-style: italic;
+}
+
+/* Field Row */
+.field-row {
+    border: 1px solid #ddd;
+    margin-bottom: 10px;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.field-row:hover {
+    border-color: #999;
+}
+
+/* Field Header */
+.field-header {
+    padding: 10px 15px;
+    background: #f1f1f1;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    border-radius: 3px 3px 0 0;
+}
+
+.field-type {
+    font-weight: 600;
+    color: #23282d;
+}
+
+.remove-field {
+    background-color: #dc3232;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.remove-field:hover {
+    background-color: #b32424;
+}
+
+/* Field Body */
+.field-body {
+    padding: 15px;
+}
+
+.field-setting {
+    margin-bottom: 15px;
+}
+
+.field-setting:last-child {
+    margin-bottom: 0;
+}
+
+.field-setting label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.field-setting input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.field-setting input[type="text"]:focus {
+    border-color: #0073aa;
+    box-shadow: 0 0 0 1px #0073aa;
+    outline: none;
+}
+
+/* Two Column Field */
+.column-container {
+    display: flex;
+    gap: 20px;
+}
+
+.column {
+    flex: 1;
+}
+
+.left-column {
+    border-right: 1px dashed #ddd;
+    padding-right: 20px;
+}
+
+.right-column {
+    padding-left: 0;
+}
+
+/* Customer Email Option */
+.customer-email-option {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.customer-email-option input[type="radio"] {
+    margin-right: 5px;
+}
+
+/* Sortable Placeholder */
+.field-row-placeholder {
+    border: 2px dashed #0073aa;
+    background-color: rgba(0, 115, 170, 0.1);
+    margin-bottom: 10px;
+    height: 60px;
+    border-radius: 3px;
+}
+
+/* Payment Settings */
+.payment-settings {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 3px;
+}
+
+.payment-settings h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.payment-settings label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.payment-settings input[type="number"],
+.payment-settings select {
+    width: 100%;
+    max-width: 300px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 782px) {
+    .column-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .left-column {
+        border-right: none;
+        border-bottom: 1px dashed #ddd;
+        padding-right: 0;
+        padding-bottom: 15px;
+    }
+    
+    .right-column {
+        padding-left: 0;
+        padding-top: 15px;
+    }
+}
+
+/* WordPress Admin Integration */
+#payment_form_form_builder .inside {
+    padding: 0;
+    margin: 0;
+}
+
+#payment_form_payment_settings .inside {
+    padding: 12px;
+}
+
+/* Form Submit Button */
+.form-submit {
+    margin-top: 20px;
+    text-align: right;
+}
+
+/* Shortcode Info */
+.shortcode-info {
+    background-color: #f8f8f8;
+    padding: 10px;
+    border-radius: 3px;
+}
+
+.shortcode-info code {
+    display: block;
+    padding: 10px;
+    margin-top: 10px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 14px;
+    text-align: center;
+}

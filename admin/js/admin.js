@@ -2,39 +2,33 @@ jQuery(document).ready(function ($) {
   // Add new field
   $(".add-field").on("click", function () {
     const fieldType = $(this).data("type");
+    const fieldCount = $(".field-row").length;
+    const currentIndex = fieldCount * 2; // Maintain consistent indexing with two-column fields
+
     let html = `
-      <div class="field-row" data-type="${fieldType}">
-        <input type="hidden" name="field_type[]" value="${fieldType}">
-        <input type="text" name="field_label[]" placeholder="Field Label">
-        <label>
-          <input type="checkbox" name="field_required[]" value="1">
-          Required
-        </label>`;
+  <div class="field-row" data-type="${fieldType}">
+  <input type="hidden" name="field_type[]" value="${fieldType}">
+  <input type="text" name="field_label[]" placeholder="Field Label">
+  <label>
+  <input type="checkbox" name="field_required[]" value="${currentIndex}">
+  Required
+  </label>`;
 
     // Add customer email option ONLY for email fields
     if (fieldType === "email") {
       html += `
-        <label class="customer-email-option">
-          <input type="radio" name="customer_email_field" value="">
-          <span style="color:#0073aa;">Customer Email</span>
-        </label>`;
+    <label class="customer-email-option">
+    <input type="radio" name="customer_email_field" value="">
+    <span style="color:#0073aa;">Customer Email</span>
+    </label>`;
     }
 
     // Add remove button to all fields
     html += `<button type="button" class="remove-field">Remove</button>
-      </div>`;
+  </div>`;
 
     // Append the new field to the container
     $(".form-fields-container").append(html);
-
-    // Set up the change handler for the label field
-    const $newField = $(".field-row:last-child");
-    $newField.find('input[name="field_label[]"]').on("change", function () {
-      if (fieldType === "email") {
-        const fieldId = sanitizeTitle($(this).val());
-        $newField.find('input[name="customer_email_field"]').val(fieldId);
-      }
-    });
   });
 
   // Add two-column field
@@ -128,6 +122,27 @@ jQuery(document).ready(function ($) {
     return true;
   });
 
+  // Add debug button handler
+  $("#debug-form-data").on("click", () => {
+    const fields = this.collectFormData();
+    console.log("Debug - Collected fields:", fields);
+
+    const jsonData = JSON.stringify(fields);
+    this.jsonInput.val(jsonData);
+
+    console.log("Debug - Set JSON input value to:", jsonData);
+    console.log("Debug - Actual input value now:", this.jsonInput.val());
+
+    // Show debug info
+    $("#debug-fields-count").text(fields.length);
+    $("#debug-json-data").text(jsonData);
+    $(".form-builder-debug").show();
+
+    alert(
+      "Form data collected and set in hidden input. Check console for details."
+    );
+  });
+
   // Orders page AJAX search
   var searchTimer;
 
@@ -143,3 +158,5 @@ jQuery(document).ready(function ($) {
     }, 500);
   });
 });
+
+

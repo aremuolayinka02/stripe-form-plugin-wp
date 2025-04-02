@@ -40,6 +40,8 @@ class Payment_Form_Builder
             // Add deactivation hook
             register_deactivation_hook(__FILE__, array($this, 'deactivate'));
 
+            register_activation_hook(__FILE__, array($this, 'create_tables'));
+
             // Initialize plugin
             add_action('plugins_loaded', array($this, 'init'));
 
@@ -125,17 +127,21 @@ class Payment_Form_Builder
         }
     }
 
-    private function create_tables()
+    public function create_tables()
     {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
 
         try {
-            $table_name = $wpdb->prefix . 'pfb_submissions';
+            // Define table names
+            $submissions_table = $wpdb->prefix . 'pfb_submissions';
+            $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
 
-            // Check if table exists
-            if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-                $sql = "CREATE TABLE $table_name (
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+
+            // Create submissions table if it doesn't exist
+            if ($wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") != $submissions_table) {
+                $submissions_sql = "CREATE TABLE $submissions_table (
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 form_id bigint(20) NOT NULL,
                 submission_data longtext NOT NULL,
@@ -154,25 +160,42 @@ class Payment_Form_Builder
                 KEY created_at (created_at)
             ) $charset_collate;";
 
-                require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-                dbDelta($sql);
+                dbDelta($submissions_sql);
 
                 // Check if table was created
-                if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
-                    throw new Exception('Failed to create database table.');
+                if ($wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") != $submissions_table) {
+                    throw new Exception('Failed to create submissions table.');
                 }
             } else {
                 // Check if mode column exists and add it if not
-                $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'mode'");
+                $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$submissions_table} LIKE 'mode'");
                 if (empty($column_exists)) {
-                    $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN mode varchar(10) AFTER currency");
-                    $wpdb->query("ALTER TABLE {$table_name} ADD INDEX mode (mode)");
+                    $wpdb->query("ALTER TABLE {$submissions_table} ADD COLUMN mode varchar(10) AFTER currency");
+                    $wpdb->query("ALTER TABLE {$submissions_table} ADD INDEX mode (mode)");
                 }
 
                 // Check if payment_intent index exists and add it if not
-                $index_exists = $wpdb->get_results("SHOW INDEX FROM {$table_name} WHERE Key_name = 'payment_intent'");
+                $index_exists = $wpdb->get_results("SHOW INDEX FROM {$submissions_table} WHERE Key_name = 'payment_intent'");
                 if (empty($index_exists)) {
-                    $wpdb->query("ALTER TABLE {$table_name} ADD INDEX payment_intent (payment_intent)");
+                    $wpdb->query("ALTER TABLE {$submissions_table} ADD INDEX payment_intent (payment_intent)");
+                }
+            }
+
+            // Create form fields table if it doesn't exist
+            if ($wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") != $form_fields_table) {
+                $form_fields_sql = "CREATE TABLE $form_fields_table (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                form_id bigint(20) NOT NULL,
+                field_data longtext NOT NULL,
+                PRIMARY KEY  (id),
+                KEY form_id (form_id)
+            ) $charset_collate;";
+
+                dbDelta($form_fields_sql);
+
+                // Check if table was created
+                if ($wpdb->get_var("SHOW TABLES LIKE '$form_fields_table'") != $form_fields_table) {
+                    throw new Exception('Failed to create form fields table.');
                 }
             }
         } catch (Exception $e) {
