@@ -192,7 +192,7 @@ class Payment_Form_Builder
             $this->set_default_options();
 
             // Register cron schedule
-        $this->register_cron_schedules();
+            $this->register_cron_schedules();
 
             // Flush rewrite rules
             flush_rewrite_rules();
@@ -205,9 +205,9 @@ class Payment_Form_Builder
     public function deactivate()
     {
         // Unregister cron schedule
-    $this->unregister_cron_schedules();
+        $this->unregister_cron_schedules();
 
-    
+
         flush_rewrite_rules();
     }
 
@@ -223,15 +223,16 @@ class Payment_Form_Builder
 
     public function create_tables()
     {
-        global $wpdb;
-        $charset_collate = $wpdb->get_charset_collate();
 
         try {
-            // Define table names
+            global $wpdb;
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+
+
+
+            $charset_collate = $wpdb->get_charset_collate();
             $submissions_table = $wpdb->prefix . 'pfb_submissions';
             $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
-
-            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
             // Create submissions table if it doesn't exist
             if ($wpdb->get_var("SHOW TABLES LIKE '$submissions_table'") != $submissions_table) {
@@ -316,7 +317,7 @@ class Payment_Form_Builder
 
 
             // Register cron hook
-        add_action('pfb_check_missed_emails', array($this, 'process_missed_emails'));
+            add_action('pfb_check_missed_emails', array($this, 'process_missed_emails'));
         } catch (Exception $e) {
             $this->errors[] = 'Plugin initialization error: ' . $e->getMessage();
             error_log('Payment Form Builder initialization error: ' . $e->getMessage());
@@ -341,8 +342,6 @@ class Payment_Form_Builder
             require_once $path;
         }
     }
-
-    
 }
 
 // Initialize plugin

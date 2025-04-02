@@ -264,7 +264,7 @@ class PFB_Stripe
         if ($status === 'completed') {
             $email_sent = get_post_meta($existing->form_id, '_payment_' . $existing->id . '_email_sent', true);
             if (!$email_sent) {
-                $data['email_notification_sent'] = 1;
+                $data['email_sent'] = 1;
             }
         }
 

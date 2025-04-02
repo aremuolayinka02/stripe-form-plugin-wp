@@ -259,14 +259,22 @@ class PFB_Orders_Table extends WP_List_Table
                         $email_result = $form_handler->send_admin_notification($order->id, $order->form_id, $submission_data);
 
                         if ($email_result) {
-                            // Update the email_sent status
-                            $wpdb->update(
-                                $table_name,
-                                ['email_sent' => 1],
-                                ['id' => $order_id],
-                                ['%d'],
-                                ['%d']
-                            );
+                            // Check if the email_sent column exists
+                            $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'email_sent'");
+
+                            if (!empty($column_exists)) {
+                                // Update the email_sent status in the database
+                                $wpdb->update(
+                                    $table_name,
+                                    ['email_sent' => 1],
+                                    ['id' => $order_id],
+                                    ['%d'],
+                                    ['%d']
+                                );
+                            } else {
+                                // Use post meta as fallback
+                                update_post_meta($order->form_id, '_payment_' . $order->id . '_email_sent', '1');
+                            }
 
                             // Add success message
                             add_action('admin_notices', function () {

@@ -157,7 +157,7 @@ class PFB_Form_Handler
         $message = "A new payment has been received.\n\n";
         $message .= "Form: " . $form_title . "\n";
         $message .= "Amount: " . $amount . " " . strtoupper($currency) . "\n\n";
-        $message .= "Form Data:\n";
+        $message .= "Fields submitted\n\n:";
 
         foreach ($form_data as $field => $value) {
             $message .= $field . ": " . $value . "\n";
