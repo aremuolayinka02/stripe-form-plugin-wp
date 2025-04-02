@@ -518,3 +518,64 @@
     font-size: 14px;
     text-align: center;
 }
+
+
+/* Tabs Navigation */
+.pfb-tabs-nav {
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid #ccc;
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.pfb-tabs-nav li {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pfb-tabs-nav li a {
+    display: block;
+    padding: 10px 15px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+    background: #f7f7f7;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    margin-right: 5px;
+    border-radius: 3px 3px 0 0;
+}
+
+.pfb-tabs-nav li a.active {
+    background: #fff;
+    color: #0073aa;
+    border-bottom: 1px solid #fff;
+    margin-bottom: -1px;
+}
+
+.pfb-tabs-nav li a:hover {
+    background: #fff;
+}
+
+/* Tab Content */
+.pfb-tab-content {
+    display: none;
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    margin-top: -1px;
+}
+
+.pfb-tab-content.active {
+    display: block;
+}
+
+/* Adjust existing styles */
+#form_builder .inside,
+#payment_settings .inside {
+    padding: 0;
+    margin: 0;
+}

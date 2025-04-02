@@ -115,23 +115,15 @@ class PFB_Admin
     public function add_meta_boxes()
     {
         add_meta_box(
-            'form_builder',           // Unique ID
-            'Form Builder',           // Box title
-            array($this, 'render_form_builder'),  // Content callback, must be of type callable
-            'payment_form',           // Post type
-            'normal',                 // Context
-            'high'                    // Priority
-        );
-
-        add_meta_box(
-            'payment_settings',
-            'Payment Settings',
-            array($this, 'render_payment_settings'),
+            'payment_form_tabs',
+            'Payment Form Settings',
+            array($this, 'render_tabbed_interface'),
             'payment_form',
             'normal',
             'high'
         );
 
+        // Keep the shortcode meta box
         add_meta_box(
             'shortcode_info',
             'Shortcode',
@@ -140,6 +132,78 @@ class PFB_Admin
             'side',
             'high'
         );
+    }
+
+    public function render_tabbed_interface($post)
+    {
+        wp_nonce_field('save_form_builder', 'form_builder_nonce');
+?>
+        <div class="pfb-tabs-container">
+            <ul class="pfb-tabs-nav">
+                <li><a href="#tab-basic" class="active">Basic</a></li>
+                <li><a href="#tab-emails">Emails</a></li>
+            </ul>
+
+            <div id="tab-basic" class="pfb-tab-content active">
+                <h3>Form Builder</h3>
+                <?php $this->render_form_builder($post); ?>
+
+                <h3>Payment Settings</h3>
+                <?php $this->render_payment_settings($post); ?>
+            </div>
+
+            <div id="tab-emails" class="pfb-tab-content">
+                <h3>Email Notifications</h3>
+                <p>Configure email notifications that will be sent when payments are processed.</p>
+
+                <?php
+                // Get saved email settings
+                $admin_email_enabled = get_post_meta($post->ID, '_admin_email_enabled', true);
+                $admin_email_subject = get_post_meta($post->ID, '_admin_email_subject', true) ?: 'New payment received';
+                $admin_email_recipients = get_post_meta($post->ID, '_admin_email_recipients', true) ?: get_option('admin_email');
+                ?>
+
+                <div class="email-settings-section">
+                    <h4>Admin Notification</h4>
+                    <p>
+                        <label>
+                            <input type="checkbox" name="admin_email_enabled" value="1" <?php checked($admin_email_enabled, '1'); ?>>
+                            Send email notification to admin when payment is completed
+                        </label>
+                    </p>
+
+                    <p>
+                        <label>Email Subject:</label>
+                        <input type="text" name="admin_email_subject" value="<?php echo esc_attr($admin_email_subject); ?>" class="regular-text">
+                    </p>
+
+                    <p>
+                        <label>Recipients (comma separated):</label>
+                        <input type="text" name="admin_email_recipients" value="<?php echo esc_attr($admin_email_recipients); ?>" class="regular-text">
+                        <span class="description">Leave empty to use the site admin email: <?php echo esc_html(get_option('admin_email')); ?></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            jQuery(document).ready(function($) {
+                // Tab functionality
+                $('.pfb-tabs-nav a').on('click', function(e) {
+                    e.preventDefault();
+
+                    // Update active tab
+                    $('.pfb-tabs-nav a').removeClass('active');
+                    $(this).addClass('active');
+
+                    // Show the corresponding tab content
+                    var target = $(this).attr('href');
+                    $('.pfb-tab-content').removeClass('active');
+                    $(target).addClass('active');
+                });
+            });
+        </script>
+    <?php
     }
 
     public function register_settings()
@@ -177,8 +241,6 @@ class PFB_Admin
 
     public function render_form_builder($post)
     {
-        wp_nonce_field('save_form_builder', 'form_builder_nonce');
-
         global $wpdb;
         $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
 
@@ -202,7 +264,7 @@ class PFB_Admin
 
         // Output existing fields as JSON for JavaScript
         echo '<script>window.existingFormFields = ' . (empty($form_fields) ? '[]' : json_encode($form_fields)) . ';</script>';
-?>
+        ?>
         <div class="form-builder-container">
             <div class="email-field-notice">
                 <p><strong>Important:</strong> To enable Stripe email receipts, add an Email field to your form and check the "Customer Email" option for that field.</p>
@@ -226,7 +288,7 @@ class PFB_Admin
             <!-- Debug button -->
             <button type="button" id="debug-form-data" class="button" style="margin-top: 15px;">Debug Form Data</button>
         </div>
-    <?php
+        <?php
     }
 
     public function render_payment_settings($post)
@@ -450,6 +512,21 @@ class PFB_Admin
             update_post_meta($post_id, '_customer_email_field', sanitize_text_field($customer_email));
         } else {
             delete_post_meta($post_id, '_customer_email_field');
+        }
+
+        // Add this at the end to save email settings
+        if (isset($_POST['admin_email_enabled'])) {
+            update_post_meta($post_id, '_admin_email_enabled', '1');
+        } else {
+            delete_post_meta($post_id, '_admin_email_enabled');
+        }
+
+        if (isset($_POST['admin_email_subject'])) {
+            update_post_meta($post_id, '_admin_email_subject', sanitize_text_field($_POST['admin_email_subject']));
+        }
+
+        if (isset($_POST['admin_email_recipients'])) {
+            update_post_meta($post_id, '_admin_email_recipients', sanitize_text_field($_POST['admin_email_recipients']));
         }
     }
 

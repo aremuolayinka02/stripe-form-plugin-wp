@@ -72,52 +72,52 @@ class PFB_Stripe
     }
 
     public function create_payment_intent($amount, $currency = 'usd', $customer_email = null)
-{
-    if (!$this->is_ready()) {
-        return new WP_Error('stripe_not_ready', 'Stripe is not properly configured: ' . implode(', ', $this->errors));
-    }
-
-    try {
-        if (!is_numeric($amount) || $amount <= 0) {
-            return new WP_Error('invalid_amount', 'Invalid payment amount');
+    {
+        if (!$this->is_ready()) {
+            return new WP_Error('stripe_not_ready', 'Stripe is not properly configured: ' . implode(', ', $this->errors));
         }
 
-        $params = [
-            'amount' => (int)($amount * 100), // Convert to cents
-            'currency' => strtolower($currency),
-        ];
-
-        // Add customer email if provided
-        if (!empty($customer_email)) {
-            error_log('Adding customer email to payment intent: ' . $customer_email);
-            
-            // Create or retrieve a customer
-            $customers = \Stripe\Customer::all([
-                'email' => $customer_email,
-                'limit' => 1
-            ]);
-
-            if (count($customers->data) > 0) {
-                $customer = $customers->data[0];
-                error_log('Using existing Stripe customer: ' . $customer->id);
-            } else {
-                $customer = \Stripe\Customer::create([
-                    'email' => $customer_email
-                ]);
-                error_log('Created new Stripe customer: ' . $customer->id);
+        try {
+            if (!is_numeric($amount) || $amount <= 0) {
+                return new WP_Error('invalid_amount', 'Invalid payment amount');
             }
 
-            $params['customer'] = $customer->id;
-            $params['receipt_email'] = $customer_email;
-        }
+            $params = [
+                'amount' => (int)($amount * 100), // Convert to cents
+                'currency' => strtolower($currency),
+            ];
 
-        return \Stripe\PaymentIntent::create($params);
-    } catch (\Stripe\Exception\CardException $e) {
-        return new WP_Error('stripe_card_error', $e->getMessage());
-    } catch (\Exception $e) {
-        return new WP_Error('stripe_error', $e->getMessage());
+            // Add customer email if provided
+            if (!empty($customer_email)) {
+                error_log('Adding customer email to payment intent: ' . $customer_email);
+
+                // Create or retrieve a customer
+                $customers = \Stripe\Customer::all([
+                    'email' => $customer_email,
+                    'limit' => 1
+                ]);
+
+                if (count($customers->data) > 0) {
+                    $customer = $customers->data[0];
+                    error_log('Using existing Stripe customer: ' . $customer->id);
+                } else {
+                    $customer = \Stripe\Customer::create([
+                        'email' => $customer_email
+                    ]);
+                    error_log('Created new Stripe customer: ' . $customer->id);
+                }
+
+                $params['customer'] = $customer->id;
+                $params['receipt_email'] = $customer_email;
+            }
+
+            return \Stripe\PaymentIntent::create($params);
+        } catch (\Stripe\Exception\CardException $e) {
+            return new WP_Error('stripe_card_error', $e->getMessage());
+        } catch (\Exception $e) {
+            return new WP_Error('stripe_error', $e->getMessage());
+        }
     }
-}
 
     /**
      * Register the webhook endpoint
@@ -222,12 +222,26 @@ class PFB_Stripe
             $payment_intent_id
         ));
 
-        if ($existing && $existing->payment_status === $status) {
-            error_log("Payment $payment_intent_id already has status $status - skipping update");
-            return true; // Already in the correct status
+        if (!$existing) {
+            error_log("No existing record found for payment intent: $payment_intent_id");
+            return false;
         }
 
-        error_log("Found record ID: {$existing->id} with current status: {$existing->payment_status}");
+        $old_status = $existing->payment_status;
+        error_log("Found record ID: {$existing->id} with current status: {$old_status}");
+
+        // If already in the target status, skip update but still check if email needs to be sent
+        $status_changed = ($old_status !== $status);
+        if (!$status_changed) {
+            error_log("Payment $payment_intent_id already has status $status - skipping update");
+
+            // Check if this is a completed payment that might need an email
+            if ($status === 'completed') {
+                $this->maybe_send_completion_email($existing);
+            }
+
+            return true;
+        }
 
         $data = [
             'payment_status' => $status,
@@ -246,6 +260,14 @@ class PFB_Stripe
             $format[] = '%s';
         }
 
+        // Add a flag to track if email was sent
+        if ($status === 'completed') {
+            $email_sent = get_post_meta($existing->form_id, '_payment_' . $existing->id . '_email_sent', true);
+            if (!$email_sent) {
+                $data['email_notification_sent'] = 1;
+            }
+        }
+
         $result = $wpdb->update(
             $table_name,
             $data,
@@ -256,10 +278,61 @@ class PFB_Stripe
 
         if ($result === false) {
             error_log('Failed to update payment status: ' . $wpdb->last_error);
+            return false;
         } else {
-            error_log("Successfully updated payment status for intent: $payment_intent_id to: $status");
+            error_log("Successfully updated payment status for intent: $payment_intent_id from: $old_status to: $status");
+
+            // If payment is completed, send admin notification
+            if ($status === 'completed') {
+                $this->maybe_send_completion_email($existing);
+            }
         }
 
         return $result;
+    }
+
+    /**
+     * Helper method to send completion email if needed
+     */
+    private function maybe_send_completion_email($payment_record)
+    {
+        // Check if we've already sent an email for this payment
+        $email_sent = get_post_meta($payment_record->form_id, '_payment_' . $payment_record->id . '_email_sent', true);
+
+        if ($email_sent) {
+            error_log("Email already sent for payment ID: {$payment_record->id} - skipping");
+            return;
+        }
+
+        error_log("Payment completed, attempting to send admin notification");
+
+        // Check if form handler class exists
+        if (!class_exists('PFB_Form_Handler')) {
+            error_log("PFB_Form_Handler class not found");
+            require_once PFB_PLUGIN_DIR . 'includes/class-form-handler.php';
+        }
+
+        $form_handler = new PFB_Form_Handler();
+        $submission_data = json_decode($payment_record->submission_data, true);
+
+        if (empty($submission_data)) {
+            error_log("Warning: Empty submission data for payment ID: {$payment_record->id}");
+        }
+
+        // Check if the method exists
+        if (method_exists($form_handler, 'send_admin_notification')) {
+            error_log("Calling send_admin_notification method");
+            $email_result = $form_handler->send_admin_notification($payment_record->id, $payment_record->form_id, $submission_data);
+
+            if ($email_result) {
+                error_log("Email sent successfully for payment ID: {$payment_record->id}");
+                // Mark this payment as having received an email
+                update_post_meta($payment_record->form_id, '_payment_' . $payment_record->id . '_email_sent', '1');
+            } else {
+                error_log("Failed to send email for payment ID: {$payment_record->id}");
+            }
+        } else {
+            error_log("Error: send_admin_notification method not found in PFB_Form_Handler class");
+        }
     }
 }

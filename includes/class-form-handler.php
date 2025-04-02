@@ -120,6 +120,74 @@ class PFB_Form_Handler
         }
     }
 
+    // Add this method to your PFB_Form_Handler class
+    public function send_admin_notification($submission_id, $form_id, $form_data)
+    {
+        error_log("Starting email notification process for submission ID: $submission_id, form ID: $form_id");
+
+
+        // Check if admin notification is enabled for this form
+        $admin_email_enabled = get_post_meta($form_id, '_admin_email_enabled', true);
+
+        if (!$admin_email_enabled) {
+            error_log("Admin email notifications are disabled for form ID: $form_id");
+            return false;
+        }
+
+        // Get email settings
+        $subject = get_post_meta($form_id, '_admin_email_subject', true) ?: 'New payment received';
+        $recipients = get_post_meta($form_id, '_admin_email_recipients', true);
+
+        if (empty($recipients)) {
+            $recipients = get_option('admin_email');
+            error_log("Using default admin email as recipient: $recipients");
+        } else {
+            error_log("Using custom recipients: $recipients");
+        }
+
+        // Get form details
+        $form_title = get_the_title($form_id);
+        $amount = get_post_meta($form_id, '_payment_amount', true);
+        $currency = get_post_meta($form_id, '_payment_currency', true) ?: 'usd';
+
+
+        error_log("Email details - Form: $form_title, Amount: $amount $currency");
+
+        // Build email content
+        $message = "A new payment has been received.\n\n";
+        $message .= "Form: " . $form_title . "\n";
+        $message .= "Amount: " . $amount . " " . strtoupper($currency) . "\n\n";
+        $message .= "Form Data:\n";
+
+        foreach ($form_data as $field => $value) {
+            $message .= $field . ": " . $value . "\n";
+        }
+
+        $message .= "\n\nView this submission in the WordPress admin: " . admin_url('edit.php?post_type=payment_form&page=pfb-orders');
+
+
+        error_log("Email message prepared with " . count($form_data) . " form fields");
+
+        // Send email
+        $headers = array('Content-Type: text/plain; charset=UTF-8');
+
+        $result = wp_mail($recipients, $subject, $message, $headers);
+
+        if ($result) {
+            error_log("Email successfully sent to $recipients");
+        } else {
+            error_log("Failed to send email to $recipients");
+
+            // Check for WordPress mail errors
+            global $phpmailer;
+            if (isset($phpmailer) && $phpmailer->ErrorInfo) {
+                error_log("PHPMailer error: " . $phpmailer->ErrorInfo);
+            }
+        }
+
+        return $result;
+    }
+
     private function store_submission($form_id, $form_data, $payment_intent_id = null)
     {
         global $wpdb;
