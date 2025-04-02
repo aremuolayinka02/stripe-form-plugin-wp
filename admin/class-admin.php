@@ -173,6 +173,10 @@ class PFB_Admin
 
         $form_fields = get_post_meta($post->ID, '_form_fields', true);
         $customer_email_field = get_post_meta($post->ID, '_customer_email_field', true);
+
+        // Log the retrieved form fields
+        error_log('Retrieved form fields: ' . print_r($form_fields, true));
+
 ?>
         <div class="form-builder-container">
             <div class="email-field-notice">
@@ -202,31 +206,33 @@ class PFB_Admin
 
     private function render_field_row($field = array(), $index = 0, $customer_email_field = '')
     {
-        $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
         $field_type = isset($field['type']) ? $field['type'] : 'text';
+        $field_id = isset($field['label']) ? sanitize_title($field['label']) : '';
 
         if ($field_type === 'two-column') {
-            // Render two-column layout
         ?>
             <div class="field-row two-column-row" data-type="two-column">
+                <input type="hidden" name="field_type[]" value="two-column">
                 <div class="two-column-container">
                     <div class="column">
-                        <input type="hidden" name="field_type[]" value="text">
                         <input type="text" name="field_label[]" placeholder="Left Column Label"
-                            value="<?php echo esc_attr($field['label'][0] ?? ''); ?>">
+                            value="<?php echo esc_attr($field['label'][0] ?? ''); ?>"
+                            data-column="0">
                         <label>
                             <input type="checkbox" name="field_required[]" value="1"
-                                <?php checked(isset($field['required'][0]) && $field['required'][0]); ?>>
+                                <?php checked(isset($field['required'][0]) && $field['required'][0]); ?>
+                                data-column="0">
                             Required
                         </label>
                     </div>
                     <div class="column">
-                        <input type="hidden" name="field_type[]" value="text">
                         <input type="text" name="field_label[]" placeholder="Right Column Label"
-                            value="<?php echo esc_attr($field['label'][1] ?? ''); ?>">
+                            value="<?php echo esc_attr($field['label'][1] ?? ''); ?>"
+                            data-column="1">
                         <label>
                             <input type="checkbox" name="field_required[]" value="1"
-                                <?php checked(isset($field['required'][1]) && $field['required'][1]); ?>>
+                                <?php checked(isset($field['required'][1]) && $field['required'][1]); ?>
+                                data-column="1">
                             Required
                         </label>
                     </div>
@@ -235,7 +241,6 @@ class PFB_Admin
             </div>
         <?php
         } else {
-            // Render existing field types
         ?>
             <div class="field-row" data-type="<?php echo esc_attr($field_type); ?>">
                 <input type="hidden" name="field_type[]" value="<?php echo esc_attr($field_type); ?>">
@@ -247,12 +252,13 @@ class PFB_Admin
                     Required
                 </label>
 
-                <!-- Customer email option - will be shown/hidden via CSS -->
-                <label class="customer-email-option">
-                    <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field_id); ?>"
-                        <?php checked($customer_email_field, $field_id); ?>>
-                    <span style="color:#0073aa;">Customer Email</span>
-                </label>
+                <?php if ($field_type === 'email'): ?>
+                    <label class="customer-email-option">
+                        <input type="radio" name="customer_email_field" value="<?php echo esc_attr($field['label'] ?? ''); ?>"
+                            <?php checked($customer_email_field, ($field['label'] ?? '')); ?>>
+                        <span style="color:#0073aa;">Customer Email</span>
+                    </label>
+                <?php endif; ?>
 
                 <button type="button" class="remove-field">Remove</button>
             </div>
@@ -300,10 +306,7 @@ class PFB_Admin
             return;
         }
 
-        if (
-            !isset($_POST['form_builder_nonce']) ||
-            !wp_verify_nonce($_POST['form_builder_nonce'], 'save_form_builder')
-        ) {
+        if (!isset($_POST['form_builder_nonce']) || !wp_verify_nonce($_POST['form_builder_nonce'], 'save_form_builder')) {
             return;
         }
 
@@ -314,57 +317,58 @@ class PFB_Admin
         // Save form fields
         $fields = array();
         if (isset($_POST['field_type']) && is_array($_POST['field_type'])) {
-            foreach ($_POST['field_type'] as $index => $type) {
-                $label = sanitize_text_field($_POST['field_label'][$index] ?? '');
-                $required = isset($_POST['field_required'][$index]) ? true : false;
+            $field_types = $_POST['field_type'];
+            $field_labels = $_POST['field_label'];
+            $field_required = isset($_POST['field_required']) ? $_POST['field_required'] : array();
 
+            $label_index = 0;
+            $required_index = 0;
+
+            foreach ($field_types as $index => $type) {
                 if ($type === 'two-column') {
                     // Handle two-column fields
                     $fields[] = array(
                         'type' => 'two-column',
-                        'label' => [
-                            sanitize_text_field($_POST['field_label'][$index * 2]), // Left label
-                            sanitize_text_field($_POST['field_label'][$index * 2 + 1]) // Right label
-                        ],
-                        'required' => [$required, $required] // Both columns required status
+                        'label' => array(
+                            sanitize_text_field($field_labels[$label_index]),
+                            sanitize_text_field($field_labels[$label_index + 1])
+                        ),
+                        'required' => array(
+                            in_array($required_index, $field_required, false),
+                            in_array($required_index + 1, $field_required, false)
+                        )
                     );
-                    $index++; // Skip the next index as we are handling two labels
+                    $label_index += 2;
+                    $required_index += 2;
                 } else {
+                    // Handle regular fields
                     $fields[] = array(
                         'type' => sanitize_text_field($type),
-                        'label' => $label,
-                        'required' => $required
+                        'label' => sanitize_text_field($field_labels[$label_index]),
+                        'required' => in_array($required_index, $field_required, false)
                     );
+                    $label_index++;
+                    $required_index++;
                 }
             }
         }
+
+        // Log the fields before saving
+        error_log('Saving form fields: ' . print_r($fields, true));
+
         update_post_meta($post_id, '_form_fields', $fields);
 
         // Save customer email field
         if (isset($_POST['customer_email_field'])) {
-            update_post_meta(
-                $post_id,
-                '_customer_email_field',
-                sanitize_text_field($_POST['customer_email_field'])
-            );
-        } else {
-            delete_post_meta($post_id, '_customer_email_field');
+            update_post_meta($post_id, '_customer_email_field', sanitize_text_field($_POST['customer_email_field']));
         }
 
         // Save payment settings
         if (isset($_POST['payment_amount'])) {
-            update_post_meta(
-                $post_id,
-                '_payment_amount',
-                floatval($_POST['payment_amount'])
-            );
+            update_post_meta($post_id, '_payment_amount', floatval($_POST['payment_amount']));
         }
         if (isset($_POST['payment_currency'])) {
-            update_post_meta(
-                $post_id,
-                '_payment_currency',
-                sanitize_text_field($_POST['payment_currency'])
-            );
+            update_post_meta($post_id, '_payment_currency', sanitize_text_field($_POST['payment_currency']));
         }
     }
 

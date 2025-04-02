@@ -24,6 +24,7 @@ class PFB_Public
         <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
             <?php foreach ($form_fields as $field): ?>
                 <?php if ($field['type'] === 'two-column'): ?>
+                    <!-- Render two-column fields -->
                     <div class="two-column-container">
                         <div class="column">
                             <label>
@@ -47,6 +48,7 @@ class PFB_Public
                         </div>
                     </div>
                 <?php else: ?>
+                    <!-- Render regular fields -->
                     <div class="form-field">
                         <label>
                             <?php echo esc_html($field['label']); ?>
