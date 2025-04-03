@@ -107,6 +107,59 @@ class PFB_Admin
                 });
             }
         }
+
+        // Handle manual payment check run
+        if (
+            isset($_POST['pfb_run_payment_check']) &&
+            isset($_POST['pfb_run_check_nonce']) &&
+            wp_verify_nonce($_POST['pfb_run_check_nonce'], 'pfb_run_payment_check')
+        ) {
+            // Create the main plugin instance
+            $plugin = payment_form_builder();
+
+            if (method_exists($plugin, 'check_pending_payments')) {
+                $plugin->check_pending_payments();
+
+                // Add success message
+                add_action('admin_notices', function () {
+                    echo '<div class="notice notice-success is-dismissible">';
+                    echo '<p><strong>Payment check has been run successfully. Check the error log for details.</strong></p>';
+                    echo '</div>';
+                });
+            } else {
+                // Add error message
+                add_action('admin_notices', function () {
+                    echo '<div class="notice notice-error is-dismissible">';
+                    echo '<p><strong>Could not run payment check: check_pending_payments method not found.</strong></p>';
+                    echo '</div>';
+                });
+            }
+        }
+
+        // Handle manual scheduling of payment check
+        if (
+            isset($_POST['pfb_schedule_payment_check']) &&
+            isset($_POST['pfb_schedule_nonce']) &&
+            wp_verify_nonce($_POST['pfb_schedule_nonce'], 'pfb_schedule_payment_check')
+        ) {
+            if (!wp_next_scheduled('pfb_check_pending_payments')) {
+                wp_schedule_event(time(), 'five_minutes', 'pfb_check_pending_payments');
+
+                // Add success message
+                add_action('admin_notices', function () {
+                    echo '<div class="notice notice-success is-dismissible">';
+                    echo '<p><strong>Payment check has been scheduled successfully.</strong></p>';
+                    echo '</div>';
+                });
+            } else {
+                // Add info message
+                add_action('admin_notices', function () {
+                    echo '<div class="notice notice-info is-dismissible">';
+                    echo '<p><strong>Payment check is already scheduled.</strong></p>';
+                    echo '</div>';
+                });
+            }
+        }
     }
 
     public function delete_form_fields($post_id)
@@ -548,70 +601,103 @@ class PFB_Admin
         if (!current_user_can('manage_options')) {
             return;
         }
+
+        // Get the active tab, default to 'general'
+        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
     ?>
         <div class="wrap">
             <h2>Payment Form Builder Settings</h2>
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('pfb_settings');
-                do_settings_sections('pfb_settings');
-                wp_nonce_field('pfb_settings_nonce', 'pfb_settings_nonce');
-                ?>
-                <table class="form-table">
-                    <tr>
-                        <th>Test Mode</th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="pfb_test_mode" value="1"
-                                    <?php checked(get_option('pfb_test_mode', true)); ?>>
-                                Enable Test Mode
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Test Public Key</th>
-                        <td>
-                            <input type="text" name="pfb_test_public_key"
-                                value="<?php echo esc_attr(get_option('pfb_test_public_key')); ?>"
-                                class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Test Secret Key</th>
-                        <td>
-                            <input type="password" name="pfb_test_secret_key"
-                                value="<?php echo esc_attr(get_option('pfb_test_secret_key')); ?>"
-                                class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Live Public Key</th>
-                        <td>
-                            <input type="text" name="pfb_live_public_key"
-                                value="<?php echo esc_attr(get_option('pfb_live_public_key')); ?>"
-                                class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Live Secret Key</th>
-                        <td>
-                            <input type="password" name="pfb_live_secret_key"
-                                value="<?php echo esc_attr(get_option('pfb_live_secret_key')); ?>"
-                                class="regular-text">
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Webhook Secret</th>
-                        <td>
-                            <input type="password" name="pfb_webhook_secret"
-                                value="<?php echo esc_attr(get_option('pfb_webhook_secret')); ?>"
-                                class="regular-text">
-                            <p class="description">Enter your Stripe webhook signing secret</p>
-                        </td>
-                    </tr>
-                </table>
+
+            <h2 class="nav-tab-wrapper">
+                <a href="?post_type=payment_form&page=pfb-settings&tab=general" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">General</a>
+                <a href="?post_type=payment_form&page=pfb-settings&tab=database" class="nav-tab <?php echo $active_tab == 'database' ? 'nav-tab-active' : ''; ?>">Database Management</a>
+                <a href="?post_type=payment_form&page=pfb-settings&tab=billing" class="nav-tab <?php echo $active_tab == 'billing' ? 'nav-tab-active' : ''; ?>">Billing</a>
+            </h2>
+
+            <?php
+            // Display the appropriate tab content
+            if ($active_tab == 'general') {
+                $this->render_general_settings_tab();
+            } elseif ($active_tab == 'database') {
+                $this->render_database_settings_tab();
+            } elseif ($active_tab == 'billing') {
+                $this->render_billing_settings_tab();
+            }
+            ?>
+        </div>
+    <?php
+    }
+
+    /**
+     * Render the General Settings tab
+     */
+    private function render_general_settings_tab()
+    {
+    ?>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('pfb_settings');
+            do_settings_sections('pfb_settings');
+            wp_nonce_field('pfb_settings_nonce', 'pfb_settings_nonce');
+            ?>
+            <table class="form-table">
                 <tr>
-                    <h3>Email Receipts</h3>
+                    <th>Test Mode</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="pfb_test_mode" value="1"
+                                <?php checked(get_option('pfb_test_mode', true)); ?>>
+                            Enable Test Mode
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Test Public Key</th>
+                    <td>
+                        <input type="text" name="pfb_test_public_key"
+                            value="<?php echo esc_attr(get_option('pfb_test_public_key')); ?>"
+                            class="regular-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th>Test Secret Key</th>
+                    <td>
+                        <input type="password" name="pfb_test_secret_key"
+                            value="<?php echo esc_attr(get_option('pfb_test_secret_key')); ?>"
+                            class="regular-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th>Live Public Key</th>
+                    <td>
+                        <input type="text" name="pfb_live_public_key"
+                            value="<?php echo esc_attr(get_option('pfb_live_public_key')); ?>"
+                            class="regular-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th>Live Secret Key</th>
+                    <td>
+                        <input type="password" name="pfb_live_secret_key"
+                            value="<?php echo esc_attr(get_option('pfb_live_secret_key')); ?>"
+                            class="regular-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th>Webhook Secret</th>
+                    <td>
+                        <input type="password" name="pfb_webhook_secret"
+                            value="<?php echo esc_attr(get_option('pfb_webhook_secret')); ?>"
+                            class="regular-text">
+                        <p class="description">Enter your Stripe webhook signing secret</p>
+                    </td>
+                </tr>
+            </table>
+
+            <h3>Email Receipts</h3>
+            <table class="form-table">
+                <tr>
+                    <th>Stripe Email Receipts</th>
                     <td>
                         <label>
                             <input type="checkbox" name="pfb_enable_stripe_emails" value="1"
@@ -621,32 +707,91 @@ class PFB_Admin
                         <p class="description">When enabled, Stripe will send payment receipts to customers (requires an email field marked as "Customer Email" in your form).</p>
                     </td>
                 </tr>
-                <?php submit_button(); ?>
-            </form>
-            <hr>
-            <h3>Database Maintenance</h3>
-            <p>If you're experiencing issues with missing columns in the database, use this button to repair the database structure.</p>
+            </table>
+
+            <?php submit_button(); ?>
+        </form>
+    <?php
+    }
+
+    /**
+     * Render the Database Management tab
+     */
+    private function render_database_settings_tab()
+    {
+    ?>
+        <h3>Database Maintenance</h3>
+        <p>If you're experiencing issues with missing columns in the database, use this button to repair the database structure.</p>
+        <form method="post" action="">
+            <?php wp_nonce_field('pfb_repair_database', 'pfb_repair_nonce'); ?>
+            <input type="hidden" name="pfb_repair_database" value="1">
+            <?php submit_button('Repair Database', 'secondary', 'repair_database'); ?>
+        </form>
+
+        <hr>
+        <h3>Automatic Payment Checks</h3>
+        <p>The plugin automatically checks pending payments every 5 minutes.</p>
+
+        <?php
+        $next_run = wp_next_scheduled('pfb_check_pending_payments');
+
+        if ($next_run) {
+            echo '<p>Next scheduled check: ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $next_run);
+            echo ' (' . human_time_diff(time(), $next_run) . ' from now)</p>';
+        } else {
+            echo '<p>No payment check currently scheduled. Try deactivating and reactivating the plugin.</p>';
+
+            // Add a button to manually schedule the cron job
+        ?>
             <form method="post" action="">
-                <?php wp_nonce_field('pfb_repair_database', 'pfb_repair_nonce'); ?>
-                <input type="hidden" name="pfb_repair_database" value="1">
-                <?php submit_button('Repair Database', 'secondary', 'repair_database'); ?>
+                <?php wp_nonce_field('pfb_schedule_payment_check', 'pfb_schedule_nonce'); ?>
+                <input type="hidden" name="pfb_schedule_payment_check" value="1">
+                <?php submit_button('Schedule Payment Check', 'secondary', 'schedule_payment_check'); ?>
             </form>
-            <hr>
-            <h3>Automatic Payment Checks</h3>
-            <p>The plugin automatically checks pending payments every 5 minutes.</p>
-            
-            <?php
-            $next_run = wp_next_scheduled('pfb_check_pending_payments');
-            
-            if ($next_run) {
-                $time_diff = $next_run - time();
-                echo '<p>Next scheduled check: ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $next_run);
-                echo ' (' . human_time_diff(time(), $next_run) . ' from now)</p>';
-            } else {
-                echo '<p>No payment check currently scheduled. Try deactivating and reactivating the plugin.</p>';
-            }
-            ?>
+        <?php
+        }
+
+        // Add a button to manually run the payment check
+        ?>
+        <form method="post" action="">
+            <?php wp_nonce_field('pfb_run_payment_check', 'pfb_run_check_nonce'); ?>
+            <input type="hidden" name="pfb_run_payment_check" value="1">
+            <?php submit_button('Run Payment Check Now', 'primary', 'run_payment_check'); ?>
+        </form>
+    <?php
+    }
+
+    /**
+     * Render the Billing tab 
+     */
+    private function render_billing_settings_tab()
+    {
+    ?>
+        <h3>Billing Settings</h3>
+        <p>Billing features will be available in a future update.</p>
+
+        <div class="pfb-coming-soon">
+            <h4>Coming Soon:</h4>
+            <ul>
+                <li>Subscription billing</li>
+                <li>Recurring payments</li>
+                <li>Payment plans</li>
+                <li>Invoicing</li>
+            </ul>
         </div>
+
+        <style>
+            .pfb-coming-soon {
+                background: #f8f8f8;
+                border-left: 4px solid #2271b1;
+                padding: 15px;
+                margin: 20px 0;
+            }
+
+            .pfb-coming-soon h4 {
+                margin-top: 0;
+            }
+        </style>
     <?php
     }
 
@@ -885,6 +1030,17 @@ class PFB_Admin
 
         if (get_post_type() !== 'payment_form') {
             return;
+        }
+
+        if ($hook == 'payment_form_page_pfb-settings') {
+            wp_add_inline_style('pfb-admin', '
+            .nav-tab-wrapper {
+                margin-bottom: 20px;
+            }
+            .form-table th {
+                width: 200px;
+            }
+        ');
         }
 
         wp_enqueue_script('jquery-ui-sortable');
