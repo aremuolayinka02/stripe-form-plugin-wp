@@ -8,7 +8,7 @@ class PFB_Public
     }
 
     public function render_form($atts)
-    {       
+    {
         $atts = shortcode_atts(array(
             'id' => 0
         ), $atts);
@@ -38,7 +38,7 @@ class PFB_Public
         $currency = get_post_meta($atts['id'], '_payment_currency', true);
 
         ob_start();
-        ?>
+?>
         <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
             <?php foreach ($form_fields as $field): ?>
                 <?php if ($field['type'] === 'two-column'): ?>
@@ -84,11 +84,16 @@ class PFB_Public
                                 <?php echo $field['required'] ? 'required' : ''; ?>>
                         <?php endif; ?>
                     </div>
-                    
+
                 <?php endif; ?>
             <?php endforeach; ?>
 
-            
+            <?php
+            // Add billing and shipping fields here
+            echo $this->render_billing_shipping_fields($atts['id']);
+            ?>
+
+
 
             <div class="payment-section">
                 <div id="card-element"></div>
@@ -97,7 +102,7 @@ class PFB_Public
 
             <button type="submit">Pay <?php echo esc_html($amount . ' ' . strtoupper($currency)); ?></button>
         </form>
-        <?php
+<?php
         return ob_get_clean();
     }
 
@@ -115,6 +120,14 @@ class PFB_Public
             PFB_VERSION
         );
 
+        wp_enqueue_style(
+            'payment-form-builder-public',
+            plugin_dir_url(__FILE__) . 'css/payment-form-builder-public.css',
+            array(),
+            $this->version,
+            'all'
+        );
+
         $test_mode = get_option('pfb_test_mode', true);
         $public_key = $test_mode
             ? get_option('pfb_test_public_key')
@@ -126,6 +139,8 @@ class PFB_Public
             array(),
             null
         );
+
+
 
         wp_enqueue_script(
             'pfb-public',

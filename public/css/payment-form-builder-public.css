@@ -1,0 +1,89 @@
+/* Billing and Shipping Fields */
+.pfb-billing-shipping-container {
+    margin-bottom: 30px;
+}
+
+.pfb-billing-fields,
+.pfb-shipping-fields {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+.pfb-billing-fields h3,
+.pfb-shipping-fields h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+    font-size: 18px;
+    color: #333;
+}
+
+.pfb-form-field {
+    margin-bottom: 15px;
+}
+
+.pfb-form-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.pfb-form-field input,
+.pfb-form-field select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.pfb-form-field input:focus,
+.pfb-form-field select:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+.pfb-same-as-billing {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+
+.pfb-same-as-billing label {
+    display: inline-flex;
+    align-items: center;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.pfb-same-as-billing input[type="checkbox"] {
+    margin-right: 8px;
+    width: auto;
+}
+
+.required {
+    color: #d63638;
+    margin-left: 3px;
+}
+
+/* Two-column layout for larger screens */
+@media (min-width: 768px) {
+    .pfb-form-row {
+        display: flex;
+        margin-left: -10px;
+        margin-right: -10px;
+    }
+    
+    .pfb-form-col {
+        flex: 1;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}

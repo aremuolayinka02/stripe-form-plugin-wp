@@ -63,6 +63,38 @@ class PFB_Form_Handler
 
         error_log('Form data received: ' . print_r($form_data, true));
 
+        // Extract billing and shipping data
+        $billing_data = [];
+        $shipping_data = [];
+        $shipping_same_as_billing = false;
+
+        foreach ($form_data as $key => $value) {
+            if (strpos($key, 'billing_') === 0) {
+                $field = str_replace('billing_', '', $key);
+                $billing_data[$field] = sanitize_text_field($value);
+            } elseif (strpos($key, 'shipping_') === 0) {
+                $field = str_replace('shipping_', '', $key);
+                $shipping_data[$field] = sanitize_text_field($value);
+            } elseif ($key === 'shipping_same_as_billing') {
+                $shipping_same_as_billing = ($value === '1');
+            }
+        }
+
+        // If shipping is same as billing, copy billing data to shipping
+        if ($shipping_same_as_billing) {
+            foreach ($billing_data as $field => $value) {
+                $shipping_data[$field] = $value;
+            }
+        }
+
+        // Add billing and shipping data to the form data
+        $form_data['_billing'] = $billing_data;
+        $form_data['_shipping'] = $shipping_data;
+        $form_data['_shipping_same_as_billing'] = $shipping_same_as_billing;
+
+        error_log('Processed billing data: ' . print_r($billing_data, true));
+        error_log('Processed shipping data: ' . print_r($shipping_data, true));
+
         // Get payment details
         $amount = floatval(get_post_meta($form_id, '_payment_amount', true));
         $currency = get_post_meta($form_id, '_payment_currency', true) ?: 'usd';
@@ -94,6 +126,12 @@ class PFB_Form_Handler
                     }
                 }
             }
+
+            // If no customer email was found but we have billing email, use that
+            if (empty($customer_email) && !empty($billing_data['email'])) {
+                $customer_email = sanitize_email($billing_data['email']);
+                error_log('Using billing email as customer email: ' . $customer_email);
+            }
         }
 
         try {
@@ -120,7 +158,7 @@ class PFB_Form_Handler
         }
     }
 
-    // Add this method to your PFB_Form_Handler class
+
     public function send_admin_notification($submission_id, $form_id, $form_data)
     {
         error_log("Starting email notification process for submission ID: $submission_id, form ID: $form_id");
@@ -145,6 +183,7 @@ class PFB_Form_Handler
             error_log("Using custom recipients: $recipients");
         }
 
+
         // Get form details
         $form_title = get_the_title($form_id);
         $amount = get_post_meta($form_id, '_payment_amount', true);
@@ -161,6 +200,31 @@ class PFB_Form_Handler
 
         foreach ($form_data as $field => $value) {
             $message .= $field . ": " . $value . "\n";
+        }
+
+        // Add billing and shipping information to the email
+        if (!empty($submission_data['billing'])) {
+            $message .= "\n\nBilling Information:\n";
+            $message .= "------------------------\n";
+
+            foreach ($submission_data['billing'] as $field => $value) {
+                $label = $this->get_field_label($field);
+                $message .= "$label: $value\n";
+            }
+        }
+
+        if (!empty($submission_data['shipping'])) {
+            $message .= "\n\nShipping Information:\n";
+            $message .= "------------------------\n";
+
+            if (isset($submission_data['shipping_same_as_billing']) && $submission_data['shipping_same_as_billing']) {
+                $message .= "Same as billing address\n";
+            } else {
+                foreach ($submission_data['shipping'] as $field => $value) {
+                    $label = $this->get_field_label($field);
+                    $message .= "$label: $value\n";
+                }
+            }
         }
 
         $message .= "\n\nView this submission in the WordPress admin: " . admin_url('edit.php?post_type=payment_form&page=pfb-orders');
@@ -328,7 +392,7 @@ class PFB_Form_Handler
                 }
             });
         });
-        </script>';
+    </script>';
 
         return $output;
     }
