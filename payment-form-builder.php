@@ -47,6 +47,8 @@ class Payment_Form_Builder
 
             // Add admin notices
             add_action('admin_notices', array($this, 'display_admin_notices'));
+
+            add_filter('cron_schedules', array($this, 'add_cron_interval'));
         } catch (Exception $e) {
             $this->errors[] = 'Plugin initialization error: ' . $e->getMessage();
             error_log('Payment Form Builder initialization error: ' . $e->getMessage());
@@ -59,6 +61,15 @@ class Payment_Form_Builder
         if (!wp_next_scheduled('pfb_check_missed_emails')) {
             wp_schedule_event(time(), 'hourly', 'pfb_check_missed_emails');
         }
+    }
+
+    public function add_cron_interval($schedules)
+    {
+        $schedules['five_minutes'] = array(
+            'interval' => 300, // 5 minutes in seconds
+            'display'  => esc_html__('Every 5 Minutes', 'payment-form-builder'),
+        );
+        return $schedules;
     }
 
     // Unregister the cron schedule on plugin deactivation
@@ -140,6 +151,62 @@ class Payment_Form_Builder
         }
     }
 
+    public function check_pending_payments()
+    {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'pfb_submissions';
+
+        error_log('Running scheduled check for pending payments');
+
+        // Get pending payments with payment_intent
+        $pending_payments = $wpdb->get_results(
+            "SELECT * FROM $table_name 
+        WHERE payment_status = 'pending' 
+        AND payment_intent IS NOT NULL 
+        AND payment_intent != '' 
+        LIMIT 25"  // Process in batches to avoid timeouts
+        );
+
+        if (empty($pending_payments)) {
+            error_log('No pending payments found to check');
+            return;
+        }
+
+        error_log('Found ' . count($pending_payments) . ' pending payments to check');
+
+        // Load the Stripe class
+        if (!class_exists('PFB_Stripe')) {
+            require_once PFB_PLUGIN_DIR . 'includes/class-stripe.php';
+        }
+
+        $stripe = new PFB_Stripe();
+
+        if (!$stripe->is_ready()) {
+            error_log('Stripe is not properly configured. Cannot check payment status.');
+            return;
+        }
+
+        foreach ($pending_payments as $payment) {
+            error_log("Checking payment status for ID: {$payment->id}, Intent: {$payment->payment_intent}");
+
+            try {
+                // Use the existing check_payment_status method from your Stripe class
+                $result = $stripe->check_payment_status($payment->payment_intent);
+
+                if ($result) {
+                    error_log("Successfully updated payment ID: {$payment->id}");
+                } else {
+                    error_log("No status change for payment ID: {$payment->id}");
+                }
+            } catch (Exception $e) {
+                error_log("Error checking payment ID: {$payment->id} - " . $e->getMessage());
+            }
+
+            // Add a small delay to avoid rate limiting
+            usleep(250000); // 0.25 seconds
+        }
+    }
+
     private function check_requirements()
     {
         // Check PHP version
@@ -194,6 +261,11 @@ class Payment_Form_Builder
             // Register cron schedule
             $this->register_cron_schedules();
 
+            // Schedule payment status check
+            if (!wp_next_scheduled('pfb_check_pending_payments')) {
+                wp_schedule_event(time(), 'five_minutes', 'pfb_check_pending_payments');
+            }
+
             // Flush rewrite rules
             flush_rewrite_rules();
         } catch (Exception $e) {
@@ -207,6 +279,11 @@ class Payment_Form_Builder
         // Unregister cron schedule
         $this->unregister_cron_schedules();
 
+        // Clear payment check schedule
+        $timestamp = wp_next_scheduled('pfb_check_pending_payments');
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, 'pfb_check_pending_payments');
+        }
 
         flush_rewrite_rules();
     }
@@ -315,6 +392,7 @@ class Payment_Form_Builder
             new PFB_Public();
             new PFB_Form_Handler();
 
+            add_action('pfb_check_pending_payments', array($this, 'check_pending_payments'));
 
             // Register cron hook
             add_action('pfb_check_missed_emails', array($this, 'process_missed_emails'));

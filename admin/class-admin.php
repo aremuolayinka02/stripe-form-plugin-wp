@@ -631,6 +631,21 @@ class PFB_Admin
                 <input type="hidden" name="pfb_repair_database" value="1">
                 <?php submit_button('Repair Database', 'secondary', 'repair_database'); ?>
             </form>
+            <hr>
+            <h3>Automatic Payment Checks</h3>
+            <p>The plugin automatically checks pending payments every 5 minutes.</p>
+            
+            <?php
+            $next_run = wp_next_scheduled('pfb_check_pending_payments');
+            
+            if ($next_run) {
+                $time_diff = $next_run - time();
+                echo '<p>Next scheduled check: ' . date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $next_run);
+                echo ' (' . human_time_diff(time(), $next_run) . ' from now)</p>';
+            } else {
+                echo '<p>No payment check currently scheduled. Try deactivating and reactivating the plugin.</p>';
+            }
+            ?>
         </div>
     <?php
     }
@@ -744,6 +759,8 @@ class PFB_Admin
         // Include the orders class
         require_once PFB_PLUGIN_DIR . 'admin/class-orders.php';
 
+        $run_check_url = admin_url('admin.php?page=pfb-run-payment-check');
+
         // Initialize the orders table
         $orders_table = new PFB_Orders_Table();
         $orders_table->prepare_items();
@@ -790,11 +807,41 @@ class PFB_Admin
 
             <div id="ajax-response"></div>
 
+            <a href="<?php echo esc_url($run_check_url); ?>" class="page-title-action">Run Payment Check</a>
+
             <form id="orders-filter" method="get">
                 <?php $orders_table->display(); ?>
             </form>
         </div>
 <?php
+    }
+
+    public function run_payment_check_page()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to access this page.'));
+        }
+
+        echo '<div class="wrap">';
+        echo '<h1>Run Payment Check</h1>';
+
+        if (isset($_POST['run_check']) && wp_verify_nonce($_POST['_wpnonce'], 'run_payment_check')) {
+            // Run the check
+            $plugin = payment_form_builder();
+            if (method_exists($plugin, 'check_pending_payments')) {
+                $plugin->check_pending_payments();
+                echo '<div class="notice notice-success"><p>Payment check completed. Check the error log for details.</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>Payment check method not found.</p></div>';
+            }
+        }
+
+        echo '<form method="post">';
+        wp_nonce_field('run_payment_check');
+        echo '<p>This will manually run the payment status check that normally runs via cron job.</p>';
+        echo '<p><input type="submit" name="run_check" class="button button-primary" value="Run Payment Check"></p>';
+        echo '</form>';
+        echo '</div>';
     }
 
     public function add_admin_menu()
@@ -817,7 +864,18 @@ class PFB_Admin
             'pfb-settings',
             array($this, 'render_settings_page')
         );
+
+        add_submenu_page(
+            null, // No parent - hidden page
+            'Run Payment Check',
+            'Run Payment Check',
+            'manage_options',
+            'pfb-run-payment-check',
+            array($this, 'run_payment_check_page')
+        );
     }
+
+
 
     public function enqueue_scripts($hook)
     {

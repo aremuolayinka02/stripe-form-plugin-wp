@@ -335,4 +335,110 @@ class PFB_Stripe
             error_log("Error: send_admin_notification method not found in PFB_Form_Handler class");
         }
     }
+
+    /**
+     * Check the status of a payment intent and update the database
+     * 
+     * @param string $payment_intent_id The payment intent ID
+     * @return bool True if the status was updated, false otherwise
+     */
+    public function check_payment_status($payment_intent_id)
+    {
+        if (!$this->is_ready()) {
+            error_log('Stripe is not properly configured');
+            return false;
+        }
+
+        try {
+            // Retrieve the payment intent from Stripe
+            $payment_intent = \Stripe\PaymentIntent::retrieve($payment_intent_id);
+
+            if (!$payment_intent) {
+                error_log("Payment intent not found: $payment_intent_id");
+                return false;
+            }
+
+            error_log("Retrieved payment intent: $payment_intent_id with status: {$payment_intent->status}");
+
+            // Check if the status has changed
+            if ($payment_intent->status === 'succeeded') {
+                // Update the payment status in the database
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'pfb_submissions';
+
+                // Get the current payment record
+                $payment = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM $table_name WHERE payment_intent = %s",
+                    $payment_intent_id
+                ));
+
+                if (!$payment) {
+                    error_log("Payment record not found for intent: $payment_intent_id");
+                    return false;
+                }
+
+                // Only update if the status is different
+                if ($payment->payment_status !== 'completed') {
+                    $result = $wpdb->update(
+                        $table_name,
+                        [
+                            'payment_status' => 'completed',
+                            'amount' => $payment_intent->amount / 100,
+                            'currency' => $payment_intent->currency,
+                            'updated_at' => current_time('mysql')
+                        ],
+                        ['payment_intent' => $payment_intent_id],
+                        ['%s', '%f', '%s', '%s'],
+                        ['%s']
+                    );
+
+                    if ($result !== false) {
+                        error_log("Updated payment status to completed for intent: $payment_intent_id");
+
+                        // Send email notification if needed
+                        if (class_exists('PFB_Form_Handler')) {
+                            $form_handler = new PFB_Form_Handler();
+                            if (method_exists($form_handler, 'send_admin_notification')) {
+                                $submission_data = json_decode($payment->submission_data, true);
+                                $form_handler->send_admin_notification($payment->id, $payment->form_id, $submission_data);
+                            }
+                        }
+
+                        return true;
+                    } else {
+                        error_log("Failed to update payment status: " . $wpdb->last_error);
+                    }
+                } else {
+                    error_log("Payment already marked as completed: $payment_intent_id");
+                }
+            } else if ($payment_intent->status === 'canceled' || $payment_intent->status === 'payment_failed') {
+                // Update to failed status
+                global $wpdb;
+                $table_name = $wpdb->prefix . 'pfb_submissions';
+
+                $result = $wpdb->update(
+                    $table_name,
+                    [
+                        'payment_status' => 'failed',
+                        'updated_at' => current_time('mysql')
+                    ],
+                    ['payment_intent' => $payment_intent_id],
+                    ['%s', '%s'],
+                    ['%s']
+                );
+
+                if ($result !== false) {
+                    error_log("Updated payment status to failed for intent: $payment_intent_id");
+                    return true;
+                }
+            } else {
+                error_log("Payment intent $payment_intent_id has status: {$payment_intent->status} - no action needed");
+            }
+
+            return false;
+        } catch (Exception $e) {
+            error_log("Error checking payment status: " . $e->getMessage());
+            return false;
+        }
+    }
 }
