@@ -25,28 +25,46 @@ class PFB_Public
         $enable_same_as_billing = get_option('pfb_enable_same_as_billing', true);
 
         // Get billing fields and layout
-        $billing_fields = get_option('pfb_billing_fields', '');
-        $billing_fields = !empty($billing_fields) ? explode(',', $billing_fields) : [];
+        $billing_fields_option = get_option('pfb_billing_fields', '');
+        $billing_fields = !empty($billing_fields_option) ? explode(',', $billing_fields_option) : [];
 
-        $billing_layout = get_option('pfb_billing_layout', []);
+        $billing_layout_option = get_option('pfb_billing_layout', '');
+        $billing_layout = !empty($billing_layout_option) ? json_decode($billing_layout_option, true) : [];
+
         if (empty($billing_layout)) {
-            $billing_layout = json_decode(json_encode($this->get_default_billing_layout()), true);
-        } else if (is_string($billing_layout)) {
-            $billing_layout = json_decode($billing_layout, true);
+            // Use default layout if none is set
+            $billing_layout = [
+                ['first_name', 'last_name'],
+                ['company'],
+                ['address_1'],
+                ['address_2'],
+                ['city', 'state'],
+                ['postcode', 'country'],
+                ['phone', 'email']
+            ];
         }
 
         // Get shipping fields and layout
-        $shipping_fields = get_option('pfb_shipping_fields', '');
-        $shipping_fields = !empty($shipping_fields) ? explode(',', $shipping_fields) : [];
+        $shipping_fields_option = get_option('pfb_shipping_fields', '');
+        $shipping_fields = !empty($shipping_fields_option) ? explode(',', $shipping_fields_option) : [];
 
-        $shipping_layout = get_option('pfb_shipping_layout', []);
+        $shipping_layout_option = get_option('pfb_shipping_layout', '');
+        $shipping_layout = !empty($shipping_layout_option) ? json_decode($shipping_layout_option, true) : [];
+
         if (empty($shipping_layout)) {
-            $shipping_layout = json_decode(json_encode($this->get_default_shipping_layout()), true);
-        } else if (is_string($shipping_layout)) {
-            $shipping_layout = json_decode($shipping_layout, true);
+            // Use default layout if none is set
+            $shipping_layout = [
+                ['first_name', 'last_name'],
+                ['company'],
+                ['address_1'],
+                ['address_2'],
+                ['city', 'state'],
+                ['postcode', 'country'],
+                ['phone']
+            ];
         }
 
-        $output = '<div class="pfb-billing-shipping-container">';
+        $output = '';
 
         // Billing Fields
         if (!empty($billing_fields)) {
@@ -58,11 +76,11 @@ class PFB_Public
 
                 $output .= '<div class="pfb-form-row">';
 
-                foreach ($row as $field) {
-                    if (!in_array($field, $billing_fields)) continue;
+                foreach ($row as $field_id) {
+                    if (!in_array($field_id, $billing_fields)) continue;
 
                     $output .= '<div class="pfb-form-col">';
-                    $output .= $this->render_address_field('billing_' . $field, $field, false); // All fields optional
+                    $output .= $this->render_address_field('billing_' . $field_id, $field_id, false);
                     $output .= '</div>';
                 }
 
@@ -73,7 +91,7 @@ class PFB_Public
         }
 
         // Shipping Fields
-        if ($enable_shipping && !empty($shipping_fields)) {
+        if ($enable_shipping) {
             $output .= '<div class="pfb-shipping-fields">';
             $output .= '<h3>Shipping Information</h3>';
 
@@ -93,11 +111,11 @@ class PFB_Public
 
                 $output .= '<div class="pfb-form-row">';
 
-                foreach ($row as $field) {
-                    if (!in_array($field, $shipping_fields)) continue;
+                foreach ($row as $field_id) {
+                    if (!in_array($field_id, $shipping_fields)) continue;
 
                     $output .= '<div class="pfb-form-col">';
-                    $output .= $this->render_address_field('shipping_' . $field, $field, false); // All fields optional
+                    $output .= $this->render_address_field('shipping_' . $field_id, $field_id, false);
                     $output .= '</div>';
                 }
 
@@ -107,8 +125,6 @@ class PFB_Public
             $output .= '</div>';
             $output .= '</div>';
         }
-
-        $output .= '</div>';
 
         // Add JavaScript for toggling shipping fields
         $output .= '<script>
@@ -205,36 +221,35 @@ class PFB_Public
      * @param bool $required Whether the field is required
      * @return string HTML for the field
      */
-    private function render_address_field($id, $field, $required = false)
+    private function render_address_field($field_name, $field_id, $required = false)
     {
-        $label = $this->get_field_label($field);
-        $type = $this->get_field_type($field);
-        $placeholder = $this->get_field_placeholder($field);
+        $field_label = $this->get_field_label($field_id);
+        $output = '';
 
-        $output = '<div class="pfb-form-field pfb-address-field pfb-' . esc_attr($field) . '">';
-        $output .= '<label for="' . esc_attr($id) . '">' . esc_html($label);
-
+        $output .= '<div class="pfb-form-field">';
+        $output .= '<label for="' . esc_attr($field_name) . '">';
+        $output .= esc_html($field_label);
         if ($required) {
             $output .= ' <span class="required">*</span>';
         }
-
         $output .= '</label>';
 
-        // Always use text input for state field
-        if ($field === 'state') {
-            $type = 'text';
-        }
+        if ($field_id === 'country') {
+            $output .= '<select name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . '>';
+            $output .= '<option value="">Select Country</option>';
 
-        if ($type === 'select') {
-            $output .= $this->render_select_field($id, $field, $required);
-        } else {
-            $output .= '<input type="' . esc_attr($type) . '" id="' . esc_attr($id) . '" name="' . esc_attr($id) . '" placeholder="' . esc_attr($placeholder) . '"';
-
-            if ($required) {
-                $output .= ' required';
+            $countries = $this->get_countries();
+            foreach ($countries as $code => $name) {
+                $output .= '<option value="' . esc_attr($code) . '">' . esc_html($name) . '</option>';
             }
 
-            $output .= '>';
+            $output .= '</select>';
+        } elseif ($field_id === 'state') {
+            $output .= '<input type="text" name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . ' placeholder="' . esc_attr($field_label) . '">';
+        } elseif ($field_id === 'email') {
+            $output .= '<input type="email" name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . ' placeholder="' . esc_attr($field_label) . '">';
+        } else {
+            $output .= '<input type="text" name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . ' placeholder="' . esc_attr($field_label) . '">';
         }
 
         $output .= '</div>';
@@ -295,14 +310,14 @@ class PFB_Public
      * @param string $field Field name
      * @return string Field label
      */
-    private function get_field_label($field)
+    private function get_field_label($field_id)
     {
         $labels = [
             'first_name' => 'First Name',
             'last_name' => 'Last Name',
             'company' => 'Company',
-            'address_1' => 'Address',
-            'address_2' => 'Apartment, suite, etc.',
+            'address_1' => 'Address Line 1',
+            'address_2' => 'Address Line 2',
             'city' => 'City',
             'state' => 'State/Province',
             'postcode' => 'Postal Code',
@@ -311,7 +326,7 @@ class PFB_Public
             'email' => 'Email'
         ];
 
-        return isset($labels[$field]) ? $labels[$field] : ucfirst(str_replace('_', ' ', $field));
+        return isset($labels[$field_id]) ? $labels[$field_id] : ucfirst(str_replace('_', ' ', $field_id));
     }
 
     /**

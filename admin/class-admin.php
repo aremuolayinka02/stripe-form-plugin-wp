@@ -1055,28 +1055,26 @@ class PFB_Admin
         <script>
             jQuery(document).ready(function($) {
                 // Toggle billing fields container visibility
-                $('#pfb-enable-billing').on('change', function() {
-                    if ($(this).is(':checked')) {
-                        $('#pfb-billing-fields-container').show();
-                        $('#pfb-enable-shipping').prop('disabled', false);
-                    } else {
-                        $('#pfb-billing-fields-container').hide();
-                        $('#pfb-enable-shipping').prop('checked', false).prop('disabled', true);
-                        $('#pfb-shipping-fields-container').hide();
-                        $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
-                    }
-                });
-
-                // Toggle shipping fields container visibility
-                $('#pfb-enable-shipping').on('change', function() {
-                    if ($(this).is(':checked')) {
-                        $('#pfb-shipping-fields-container').show();
+                $('#pfb-enable-shipping, input[name="pfb_enable_same_as_billing"]').on('change', function() {
+                    // If shipping is enabled
+                    if ($('#pfb-enable-shipping').is(':checked')) {
+                        // If same-as-billing is checked, hide the shipping fields container
+                        if ($('input[name="pfb_enable_same_as_billing"]').is(':checked')) {
+                            $('#pfb-shipping-fields-container').hide();
+                        } else {
+                            $('#pfb-shipping-fields-container').show();
+                        }
                         $('input[name="pfb_enable_same_as_billing"]').prop('disabled', false);
                     } else {
                         $('#pfb-shipping-fields-container').hide();
                         $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
                     }
                 });
+
+                // Initial state check for same-as-billing
+                if ($('#pfb-enable-shipping').is(':checked') && $('input[name="pfb_enable_same_as_billing"]').is(':checked')) {
+                    $('#pfb-shipping-fields-container').hide();
+                }
 
                 // Make available fields draggable
                 $('#pfb-available-billing-fields li, #pfb-available-shipping-fields li').draggable({
