@@ -1,16 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // Verify SSL for live mode
-  if (!pfbData.test_mode && window.location.protocol !== "https:") {
-    console.error("Stripe requires HTTPS in live mode");
-    return;
-  }
-
-  // Verify required data
-  if (!pfbData || !pfbData.ajaxUrl || !pfbData.publicKey) {
-    console.error("Required payment form data is missing");
-    return;
-  }
-
   const stripe = Stripe(pfbData.publicKey);
   const elements = stripe.elements();
   const card = elements.create("card");
@@ -24,26 +12,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const errorElement = document.getElementById("card-errors");
     errorElement.textContent = "";
 
-    // Add debug info
-    console.log("Form submission started");
-    console.log("AJAX URL:", pfbData.ajaxUrl);
-    console.log("Test mode:", pfbData.test_mode);
-
     try {
-      // Disable submit button to prevent double submission
+      // Disable submit button
       submitButton.disabled = true;
 
       // Get form data
       const formData = new FormData(form);
       const formId = form.id.replace("payment-form-", "");
+      const formDataObj = Object.fromEntries(formData);
 
-      // Create form data object
-      const formDataObj = {};
-      formData.forEach((value, key) => {
-        formDataObj[key] = value;
-      });
-
-      // Make AJAX request with proper formatting and error handling
+      // First, send form data to get payment intent
       const response = await fetch(pfbData.ajaxUrl, {
         method: "POST",
         headers: {
@@ -55,54 +33,29 @@ document.addEventListener("DOMContentLoaded", function () {
           form_id: formId,
           form_data: JSON.stringify(formDataObj),
           site_url: window.location.origin,
+          initial_request: true, // Add this flag
         }).toString(),
         credentials: "same-origin",
       });
 
-      // Log response for debugging
-      console.log("Server response status:", response.status);
-      const responseText = await response.text();
-      console.log("Server response:", responseText);
-
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error("Invalid server response: " + responseText);
-      }
+      const result = await response.json();
 
       if (!result.success) {
-        // Enhanced error handling
-        if (result.data && result.data.errors) {
-          // Create a formatted error message with line breaks
-          const errorMessage = result.data.errors.join("<br>");
-          errorElement.innerHTML = errorMessage;
-          submitButton.disabled = false;
-          return;
-        } else {
-          throw new Error(result.data || "Payment processing failed");
-        }
+        throw new Error(result.data.message || "Payment initialization failed");
       }
 
-      // Then confirm the card payment
+      // Now confirm the card payment with Stripe
       const { paymentIntent, error } = await stripe.confirmCardPayment(
         result.data.client_secret,
         {
           payment_method: {
             card: card,
             billing_details: {
-              name: formDataObj["billing_first_name"]
-                ? `${formDataObj["billing_first_name"]} ${formDataObj["billing_last_name"]}`
-                : "",
-              email: formDataObj["billing_email"] || "",
-              address: {
-                line1: formDataObj["billing_address_1"] || "",
-                line2: formDataObj["billing_address_2"] || "",
-                city: formDataObj["billing_city"] || "",
-                state: formDataObj["billing_state"] || "",
-                postal_code: formDataObj["billing_postcode"] || "",
-                country: formDataObj["billing_country"] || "",
-              },
+              name:
+                formDataObj["billing_first_name"] +
+                " " +
+                formDataObj["billing_last_name"],
+              email: formDataObj["billing_email"],
             },
           },
         }
@@ -112,8 +65,32 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(error.message);
       }
 
-      // Payment successful
-      window.location.href = window.location.href + "?payment=success";
+      // If payment is successful, save the order
+      if (paymentIntent.status === "succeeded") {
+        const saveOrderResponse = await fetch(pfbData.ajaxUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            action: "save_payment_order",
+            nonce: pfbData.nonce,
+            form_id: formId,
+            form_data: JSON.stringify(formDataObj),
+            payment_intent_id: paymentIntent.id,
+            payment_status: paymentIntent.status,
+          }).toString(),
+          credentials: "same-origin",
+        });
+
+        const saveResult = await saveOrderResponse.json();
+        if (!saveResult.success) {
+          throw new Error(saveResult.data.message || "Failed to save order");
+        }
+
+        // Redirect to success page
+        window.location.href = window.location.href + "?payment=success";
+      }
     } catch (error) {
       errorElement.textContent = error.message;
       submitButton.disabled = false;

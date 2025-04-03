@@ -13,6 +13,9 @@ class PFB_Form_Handler
                 $this->initialized = true;
                 add_action('wp_ajax_process_payment_form', array($this, 'process_form'));
                 add_action('wp_ajax_nopriv_process_payment_form', array($this, 'process_form'));
+
+                add_action('wp_ajax_save_payment_order', array($this, 'save_payment_order'));
+                add_action('wp_ajax_nopriv_save_payment_order', array($this, 'save_payment_order'));
             } else {
                 add_action('admin_notices', array($this, 'display_stripe_errors'));
             }
@@ -339,8 +342,8 @@ class PFB_Form_Handler
             }
 
             // Store form submission WITH payment intent ID
-            $submission_id = $this->store_submission($form_id, $form_data, $payment_intent->id);
-            error_log('Stored submission with ID: ' . $submission_id . ' and payment intent: ' . $payment_intent->id);
+            // $submission_id = $this->store_submission($form_id, $form_data, $payment_intent->id);
+            // error_log('Stored submission with ID: ' . $submission_id . ' and payment intent: ' . $payment_intent->id);
 
             wp_send_json_success(array(
                 'client_secret' => $payment_intent->client_secret,
@@ -349,6 +352,41 @@ class PFB_Form_Handler
         } catch (Exception $e) {
             error_log('Payment processing error: ' . $e->getMessage());
             wp_send_json_error('Payment processing failed: ' . $e->getMessage());
+        }
+    }
+
+    public function save_payment_order()
+    {
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'process_payment_form')) {
+            wp_send_json_error('Invalid security token');
+            return;
+        }
+
+        // Get data
+        $form_id = isset($_POST['form_id']) ? intval($_POST['form_id']) : 0;
+        $form_data = isset($_POST['form_data']) ? json_decode(stripslashes($_POST['form_data']), true) : array();
+        $payment_intent_id = isset($_POST['payment_intent_id']) ? sanitize_text_field($_POST['payment_intent_id']) : '';
+        $payment_status = isset($_POST['payment_status']) ? sanitize_text_field($_POST['payment_status']) : '';
+
+        if (!$form_id || empty($form_data) || empty($payment_intent_id) || $payment_status !== 'succeeded') {
+            wp_send_json_error('Invalid order data');
+            return;
+        }
+
+        try {
+            // Store the order
+            $submission_id = $this->store_submission($form_id, $form_data, $payment_intent_id);
+
+            if (!$submission_id) {
+                throw new Exception('Failed to save order');
+            }
+
+            wp_send_json_success(array(
+                'submission_id' => $submission_id
+            ));
+        } catch (Exception $e) {
+            wp_send_json_error('Failed to save order: ' . $e->getMessage());
         }
     }
 
@@ -476,7 +514,7 @@ class PFB_Form_Handler
         return $result;
     }
 
-    private function store_submission($form_id, $form_data, $payment_intent_id = null)
+    private function store_submission($form_id, $form_data, $payment_intent_id = null, $payment_status = 'pending')
     {
         global $wpdb;
 
@@ -491,7 +529,7 @@ class PFB_Form_Handler
         $data = array(
             'form_id' => $form_id,
             'submission_data' => json_encode($form_data),
-            'payment_status' => 'pending',
+            'payment_status' => $payment_status, // Use the provided payment status
             'mode' => $mode,
             'amount' => $amount,
             'currency' => $currency,
@@ -504,7 +542,6 @@ class PFB_Form_Handler
         if ($payment_intent_id) {
             $data['payment_intent'] = $payment_intent_id;
             $format[] = '%s';
-
             error_log('Adding payment intent to submission: ' . $payment_intent_id);
         }
 
