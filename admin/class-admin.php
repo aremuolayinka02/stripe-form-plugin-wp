@@ -30,6 +30,12 @@ class PFB_Admin
         add_action('delete_post', array($this, 'delete_form_fields'));
 
         add_action('add_meta_boxes', array($this, 'remove_unwanted_meta_boxes'), 99);
+
+        // Add action to clear cache when settings are updated
+        add_action('update_option_pfb_billing_layout', array($this, 'handle_settings_update'), 10, 3);
+        add_action('update_option_pfb_enable_billing', array($this, 'handle_settings_update'), 10, 3);
+        add_action('update_option_pfb_enable_shipping', array($this, 'handle_settings_update'), 10, 3);
+        add_action('update_option_pfb_enable_same_as_billing', array($this, 'handle_settings_update'), 10, 3);
     }
 
     public function register_form_post_type()
@@ -176,6 +182,17 @@ class PFB_Admin
             array('form_id' => $post_id),
             array('%d')
         );
+    }
+
+    public function handle_settings_update($old_value, $new_value, $option_name)
+    {
+        $this->clear_settings_cache();
+
+        // Force refresh of options
+        wp_cache_set($option_name, $new_value, 'options');
+
+        // Add a transient to indicate settings were updated
+        set_transient('pfb_settings_updated', true, 30);
     }
 
     public function add_meta_boxes()
@@ -364,6 +381,30 @@ class PFB_Admin
         register_setting('pfb_billing_settings', 'pfb_billing_fields');
         register_setting('pfb_billing_settings', 'pfb_shipping_layout');
         register_setting('pfb_billing_settings', 'pfb_shipping_fields');
+
+
+        // Billing and shipping settings with sanitization callbacks
+        register_setting('pfb_billing_settings', 'pfb_enable_billing', array(
+            'sanitize_callback' => 'rest_sanitize_boolean'
+        ));
+        register_setting('pfb_billing_settings', 'pfb_enable_shipping', array(
+            'sanitize_callback' => 'rest_sanitize_boolean'
+        ));
+        register_setting('pfb_billing_settings', 'pfb_enable_same_as_billing', array(
+            'sanitize_callback' => 'rest_sanitize_boolean'
+        ));
+        register_setting('pfb_billing_settings', 'pfb_billing_layout', array(
+            'sanitize_callback' => array($this, 'sanitize_layout')
+        ));
+        register_setting('pfb_billing_settings', 'pfb_billing_fields', array(
+            'sanitize_callback' => array($this, 'sanitize_fields')
+        ));
+        register_setting('pfb_billing_settings', 'pfb_shipping_layout', array(
+            'sanitize_callback' => array($this, 'sanitize_layout')
+        ));
+        register_setting('pfb_billing_settings', 'pfb_shipping_fields', array(
+            'sanitize_callback' => array($this, 'sanitize_fields')
+        ));
     }
 
     public function remove_unwanted_meta_boxes()
@@ -386,6 +427,55 @@ class PFB_Admin
                 }
             }
         }
+    }
+
+
+    public function sanitize_layout($value)
+    {
+        if (empty($value)) {
+            return '';
+        }
+
+        if (is_string($value)) {
+            $layout = json_decode($value, true);
+        } else {
+            $layout = $value;
+        }
+
+        if (!is_array($layout)) {
+            return '';
+        }
+
+        // Clear the cache when layout is updated
+        $this->clear_settings_cache();
+
+        return json_encode($layout);
+    }
+
+    public function sanitize_fields($value)
+    {
+        if (empty($value)) {
+            return '';
+        }
+
+        $fields = is_array($value) ? $value : explode(',', $value);
+        $fields = array_map('sanitize_text_field', $fields);
+
+        // Clear the cache when fields are updated
+        $this->clear_settings_cache();
+
+        return implode(',', $fields);
+    }
+
+    private function clear_settings_cache()
+    {
+        wp_cache_delete('pfb_enable_billing', 'options');
+        wp_cache_delete('pfb_enable_shipping', 'options');
+        wp_cache_delete('pfb_enable_same_as_billing', 'options');
+        wp_cache_delete('pfb_billing_layout', 'options');
+        wp_cache_delete('pfb_billing_fields', 'options');
+        wp_cache_delete('pfb_shipping_layout', 'options');
+        wp_cache_delete('pfb_shipping_fields', 'options');
     }
 
     public function render_form_builder($post)
@@ -1725,7 +1815,7 @@ class PFB_Admin
 
             <div id="ajax-response"></div>
 
-            <a href="<?php echo esc_url($run_check_url); ?>" class="page-title-action">Run Payment Check</a>
+            <a href="<?php echo esc_url($run_check_url); ?>" class="run-payment-title-action">Run Payment Check</a>
 
             <form id="orders-filter" method="get">
                 <?php $orders_table->display(); ?>

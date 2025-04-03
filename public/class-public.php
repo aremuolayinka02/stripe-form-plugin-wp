@@ -8,6 +8,82 @@ class PFB_Public
     }
 
 
+
+    private function get_fresh_settings()
+    {
+        global $wpdb;
+
+        // Get all relevant options directly from the database
+        $options = [
+            'pfb_enable_billing' => get_option('pfb_enable_billing'),
+            'pfb_enable_shipping' => get_option('pfb_enable_shipping'),
+            'pfb_enable_same_as_billing' => get_option('pfb_enable_same_as_billing'),
+            'pfb_billing_layout' => get_option('pfb_billing_layout'),
+            'pfb_shipping_layout' => get_option('pfb_shipping_layout')
+        ];
+
+        error_log('Raw options from database: ' . print_r($options, true));
+
+        // Initialize settings with proper type conversion
+        $settings = [
+            'enable_billing' => filter_var($options['pfb_enable_billing'], FILTER_VALIDATE_BOOLEAN),
+            'enable_shipping' => filter_var($options['pfb_enable_shipping'], FILTER_VALIDATE_BOOLEAN),
+            'enable_same_as_billing' => filter_var($options['pfb_enable_same_as_billing'], FILTER_VALIDATE_BOOLEAN),
+            'billing_layout' => null,
+            'shipping_layout' => null
+        ];
+
+        // Try to decode billing layout
+        $billing_layout = json_decode($options['pfb_billing_layout'], true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($billing_layout)) {
+            $settings['billing_layout'] = $billing_layout;
+        } else {
+            error_log('Failed to decode billing layout: ' . json_last_error_msg());
+            error_log('Raw billing layout: ' . print_r($options['pfb_billing_layout'], true));
+        }
+
+        // Try to decode shipping layout
+        $shipping_layout = json_decode($options['pfb_shipping_layout'], true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($shipping_layout)) {
+            $settings['shipping_layout'] = $shipping_layout;
+        } else {
+            error_log('Failed to decode shipping layout: ' . json_last_error_msg());
+            error_log('Raw shipping layout: ' . print_r($options['pfb_shipping_layout'], true));
+        }
+
+        // Set default layouts if needed
+        if (empty($settings['billing_layout'])) {
+            $settings['billing_layout'] = [
+                ['first_name', 'last_name'],
+                ['company'],
+                ['address_1'],
+                ['address_2'],
+                ['city', 'state'],
+                ['postcode', 'country'],
+                ['phone'],
+                ['email']
+            ];
+        }
+
+        if (empty($settings['shipping_layout'])) {
+            $settings['shipping_layout'] = [
+                ['first_name', 'last_name'],
+                ['company'],
+                ['address_1'],
+                ['address_2'],
+                ['city', 'state'],
+                ['postcode', 'country'],
+                ['phone']
+            ];
+        }
+
+        error_log('Final processed settings: ' . print_r($settings, true));
+
+        return $settings;
+    }
+
+
+
     /**
      * Render billing and shipping fields
      * 
@@ -16,21 +92,15 @@ class PFB_Public
      */
     public function render_billing_shipping_fields($form_id)
     {
-        // Get billing and shipping settings
-        $enable_billing = get_option('pfb_enable_billing', false);
-        $enable_shipping = get_option('pfb_enable_shipping', false);
-        $enable_same_as_billing = get_option('pfb_enable_same_as_billing', true);
+        // Get fresh settings
+        $settings = $this->get_fresh_settings();
 
-        if (!$enable_billing) {
+
+        error_log('Rendering billing/shipping fields with settings: ' . print_r($settings, true));
+
+        if (!$settings['enable_billing']) {
             return '';
         }
-
-        // Get saved field layouts
-            $billing_layout_option = get_option('pfb_billing_layout', '');
-            $billing_layout = !empty($billing_layout_option) ? json_decode($billing_layout_option, true) : [];
-
-            $shipping_layout_option = get_option('pfb_shipping_layout', '');
-            $shipping_layout = !empty($shipping_layout_option) ? json_decode($shipping_layout_option, true) : [];
 
         // All available fields with labels
         $all_billing_fields = [
@@ -60,51 +130,48 @@ class PFB_Public
             'phone' => 'Phone'
         ];
 
+        error_log('Settings: ' . print_r($settings['enable_billing'], true)); // Debugging line
+
         ob_start();
-        ?>
+?>
         <div class="pfb-billing-shipping-container">
-            <?php if ($enable_billing): ?>
-                <div class="pfb-billing-fields">
-                    <h3>Billing Information</h3>
-                    <?php foreach ($billing_layout as $row): ?>
-                        <div class="pfb-form-row">
-                            <?php foreach ($row as $field_id): ?>
-                                <?php if (isset($all_billing_fields[$field_id])): ?>
-                                    <div class="pfb-form-col">
-                                        <div class="pfb-form-field">
-                                            <label for="billing_<?php echo esc_attr($field_id); ?>">
-                                                <?php echo esc_html($all_billing_fields[$field_id]); ?>
-                                                <span class="required">*</span>
-                                            </label>
-                                            <input type="text"
-                                                name="billing_<?php echo esc_attr($field_id); ?>"
-                                                id="billing_<?php echo esc_attr($field_id); ?>"
-                                                required>
-                                        </div>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
+            <?php foreach ($settings['billing_layout'] as $row): ?>
+                <div class="pfb-form-row">
+                    <?php foreach ((array)$row as $field_id): ?>
+                        <?php if (isset($all_billing_fields[$field_id])): ?>
+                            <div class="pfb-form-col">
+                                <div class="pfb-form-field">
+                                    <label for="billing_<?php echo esc_attr($field_id); ?>">
+                                        <?php echo esc_html($all_billing_fields[$field_id]); ?>
+                                        <span class="required">*</span>
+                                    </label>
+                                    <input type="text"
+                                        name="billing_<?php echo esc_attr($field_id); ?>"
+                                        id="billing_<?php echo esc_attr($field_id); ?>"
+                                        required>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
-               <?php endif; ?>
+            <?php endforeach; ?>
 
-            <?php if ($enable_billing && $enable_shipping): ?>
+            <?php if ($settings['enable_billing'] && $settings['enable_shipping']): ?>
                 <div class="pfb-same-as-billing">
                     <label>
                         <input type="checkbox"
                             name="shipping_same_as_billing"
                             id="shipping_same_as_billing"
-                            <?php checked($enable_same_as_billing); ?>>
+                            <?php checked($settings['enable_same_as_billing']); ?>>
                         Use my billing address for shipping
                     </label>
                 </div>
 
-                <div class="pfb-shipping-fields" <?php echo $enable_same_as_billing ? 'style="display:none;"' : ''; ?>>
+                <div class="pfb-shipping-fields" <?php echo $settings['enable_same_as_billing'] ? 'style="display:none;"' : ''; ?>>
                     <h3>Shipping Information</h3>
-                    <?php foreach ($shipping_layout as $row): ?>
+                    <?php foreach ($settings['shipping_layout'] as $row): ?>
                         <div class="pfb-form-row">
-                            <?php foreach ($row as $field_id): ?>
+                            <?php foreach ((array)$row as $field_id): ?>
                                 <?php if (isset($all_shipping_fields[$field_id])): ?>
                                     <div class="pfb-form-col">
                                         <div class="pfb-form-field">
@@ -184,260 +251,6 @@ class PFB_Public
         return ob_get_clean();
     }
 
-
-
-
-
-    /**
-     * Get default billing layout
-     * 
-     * @return array Default billing layout
-     */
-    private function get_default_billing_layout()
-    {
-        return [
-            [
-                'first_name',
-                'last_name'
-            ],
-            [
-                'company'
-            ],
-            [
-                'address_1'
-            ],
-            [
-                'address_2'
-            ],
-            [
-                'city',
-                'state'
-            ],
-            [
-                'postcode',
-                'country'
-            ],
-            [
-                'phone',
-                'email'
-            ]
-        ];
-    }
-
-    /**
-     * Get default shipping layout
-     * 
-     * @return array Default shipping layout
-     */
-    private function get_default_shipping_layout()
-    {
-        return [
-            [
-                'first_name',
-                'last_name'
-            ],
-            [
-                'company'
-            ],
-            [
-                'address_1'
-            ],
-            [
-                'address_2'
-            ],
-            [
-                'city',
-                'state'
-            ],
-            [
-                'postcode',
-                'country'
-            ],
-            [
-                'phone'
-            ]
-        ];
-    }
-
-    /**
-     * Render an address field
-     * 
-     * @param string $id Field ID
-     * @param string $field Field name
-     * @param bool $required Whether the field is required
-     * @return string HTML for the field
-     */
-    private function render_address_field($field_name, $field_id, $required = false)
-    {
-        $field_label = $this->get_field_label($field_id);
-        $output = '';
-
-        $output .= '<div class="pfb-form-field">';
-        $output .= '<label for="' . esc_attr($field_name) . '">';
-        $output .= esc_html($field_label);
-        if ($required) {
-            $output .= ' <span class="required">*</span>';
-        }
-        $output .= '</label>';
-
-        if ($field_id === 'country') {
-            $output .= '<select name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . '>';
-            $output .= '<option value="">Select Country</option>';
-
-            $countries = $this->get_countries();
-            foreach ($countries as $code => $name) {
-                $output .= '<option value="' . esc_attr($code) . '">' . esc_html($name) . '</option>';
-            }
-
-            $output .= '</select>';
-        } elseif ($field_id === 'state') {
-            $output .= '<input type="text" name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . ' placeholder="' . esc_attr($field_label) . '">';
-        } elseif ($field_id === 'email') {
-            $output .= '<input type="email" name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . ' placeholder="' . esc_attr($field_label) . '">';
-        } else {
-            $output .= '<input type="text" name="' . esc_attr($field_name) . '" id="' . esc_attr($field_name) . '"' . ($required ? ' required' : '') . ' placeholder="' . esc_attr($field_label) . '">';
-        }
-
-        $output .= '</div>';
-
-        return $output;
-    }
-
-    /**
-     * Render a select field for country or state
-     * 
-     * @param string $id Field ID
-     * @param string $field Field name
-     * @param bool $required Whether the field is required
-     * @return string HTML for the select field
-     */
-    private function render_select_field($id, $field, $required = false)
-    {
-        $output = '<select id="' . esc_attr($id) . '" name="' . esc_attr($id) . '"';
-
-        if ($required) {
-            $output .= ' required';
-        }
-
-        $output .= '>';
-
-        if ($field === 'country') {
-            $output .= $this->get_country_options();
-        } elseif ($field === 'state') {
-            $output .= '<option value="">Select State/Province</option>';
-            // States will be populated via JavaScript based on country selection
-        }
-
-        $output .= '</select>';
-
-        return $output;
-    }
-
-    /**
-     * Get country options for select field
-     * 
-     * @return string HTML options for countries
-     */
-    private function get_country_options()
-    {
-        $countries = $this->get_countries();
-        $output = '<option value="">Select Country</option>';
-
-        foreach ($countries as $code => $name) {
-            $output .= '<option value="' . esc_attr($code) . '">' . esc_html($name) . '</option>';
-        }
-
-        return $output;
-    }
-
-    /**
-     * Get field label
-     * 
-     * @param string $field Field name
-     * @return string Field label
-     */
-    private function get_field_label($field_id)
-    {
-        $labels = [
-            'first_name' => 'First Name',
-            'last_name' => 'Last Name',
-            'company' => 'Company',
-            'address_1' => 'Address Line 1',
-            'address_2' => 'Address Line 2',
-            'city' => 'City',
-            'state' => 'State/Province',
-            'postcode' => 'Postal Code',
-            'country' => 'Country',
-            'phone' => 'Phone',
-            'email' => 'Email'
-        ];
-
-        return isset($labels[$field_id]) ? $labels[$field_id] : ucfirst(str_replace('_', ' ', $field_id));
-    }
-
-    /**
-     * Get field type
-     * 
-     * @param string $field Field name
-     * @return string Field type
-     */
-    private function get_field_type($field)
-    {
-        $types = [
-            'email' => 'email',
-            'phone' => 'tel',
-            'country' => 'select'
-            // Removed 'state' => 'select' to make it a text field
-        ];
-
-        return isset($types[$field]) ? $types[$field] : 'text';
-    }
-
-    /**
-     * Get field placeholder
-     * 
-     * @param string $field Field name
-     * @return string Field placeholder
-     */
-    private function get_field_placeholder($field)
-    {
-        $placeholders = [
-            'first_name' => 'First Name',
-            'last_name' => 'Last Name',
-            'company' => 'Company (optional)',
-            'address_1' => 'Street Address',
-            'address_2' => 'Apt, Suite, Unit, etc. (optional)',
-            'city' => 'City',
-            'state' => 'State/Province',
-            'postcode' => 'Postal/Zip Code',
-            'phone' => 'Phone Number',
-            'email' => 'Email Address'
-        ];
-
-        return isset($placeholders[$field]) ? $placeholders[$field] : '';
-    }
-
-    /**
-     * Get countries list
-     * 
-     * @return array Countries
-     */
-    private function get_countries()
-    {
-        return [
-            'US' => 'United States',
-            'CA' => 'Canada',
-            'GB' => 'United Kingdom',
-            'AU' => 'Australia',
-            'DE' => 'Germany',
-            'FR' => 'France',
-            'IT' => 'Italy',
-            'ES' => 'Spain',
-            'JP' => 'Japan',
-            'CN' => 'China',
-            // Add more countries as needed
-        ];
-    }
 
     public function render_form($atts)
     {
@@ -519,6 +332,8 @@ class PFB_Public
 
                 <?php endif; ?>
             <?php endforeach; ?>
+
+
 
             <?php
             // Add billing and shipping fields here

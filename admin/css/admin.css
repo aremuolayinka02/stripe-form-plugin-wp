@@ -125,6 +125,11 @@
   margin-right: 5px;
 }
 
+.run-payment-title-action {
+  margin: 0px;
+  margin: 15px 0;
+}
+
 /* Field type buttons */
 .field-types button {
   margin-right: 10px;
