@@ -87,3 +87,34 @@
         padding-right: 10px;
     }
 }
+
+/* Two-column layout for billing and shipping fields */
+.pfb-form-row {
+    display: flex;
+    margin-left: -10px;
+    margin-right: -10px;
+    margin-bottom: 15px;
+}
+
+.pfb-form-col {
+    flex: 1;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* Responsive layout for mobile */
+@media (max-width: 767px) {
+    .pfb-form-row {
+        flex-direction: column;
+    }
+    
+    .pfb-form-col {
+        margin-bottom: 15px;
+    }
+}
+
+/* Full width for single fields */
+.pfb-full-width {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+}
