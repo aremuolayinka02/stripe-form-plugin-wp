@@ -768,9 +768,7 @@ class PFB_Admin
     <?php
     }
 
-    /**
-     * Render the Billing tab 
-     */
+    
     /**
      * Render the Billing tab
      */
@@ -779,14 +777,21 @@ class PFB_Admin
         // Get current settings
         $enable_billing = get_option('pfb_enable_billing', false);
         $enable_shipping = get_option('pfb_enable_shipping', false);
-        $billing_fields = get_option('pfb_billing_fields', $this->get_default_billing_fields());
-        $shipping_fields = get_option('pfb_shipping_fields', $this->get_default_shipping_fields());
+        $enable_same_as_billing = get_option('pfb_enable_same_as_billing', true);
+
+        // Get billing fields
+        $billing_fields_option = get_option('pfb_billing_fields', '');
+        $billing_fields = !empty($billing_fields_option) ? explode(',', $billing_fields_option) : $this->get_default_billing_fields();
+
+        // Get shipping fields
+        $shipping_fields_option = get_option('pfb_shipping_fields', '');
+        $shipping_fields = !empty($shipping_fields_option) ? explode(',', $shipping_fields_option) : $this->get_default_shipping_fields();
+
     ?>
         <form method="post" action="options.php" id="pfb-billing-settings-form">
             <?php
             settings_fields('pfb_billing_settings');
             do_settings_sections('pfb_billing_settings');
-            wp_nonce_field('pfb_billing_settings_nonce', 'pfb_billing_settings_nonce');
             ?>
 
             <h3>Billing Information</h3>
@@ -802,209 +807,322 @@ class PFB_Admin
                         <p class="description">When enabled, customers will be asked to provide billing information.</p>
                     </td>
                 </tr>
-            </table>
-
-            <div id="pfb-billing-fields-container" <?php echo !$enable_billing ? 'style="display:none;"' : ''; ?>>
-                <h4>Billing Fields</h4>
-                <p>Select which billing fields to display on your forms.</p>
-
-                <div class="pfb-billing-builder">
-                    <div class="pfb-billing-fields-list">
-                        <h4>Available Fields</h4>
-                        <ul id="pfb-available-billing-fields">
-                            <li data-field="first_name" class="<?php echo in_array('first_name', $billing_fields) ? 'selected' : ''; ?>">
-                                First Name <span class="required">*</span>
-                            </li>
-                            <li data-field="last_name" class="<?php echo in_array('last_name', $billing_fields) ? 'selected' : ''; ?>">
-                                Last Name <span class="required">*</span>
-                            </li>
-                            <li data-field="company" class="<?php echo in_array('company', $billing_fields) ? 'selected' : ''; ?>">
-                                Company
-                            </li>
-                            <li data-field="address_1" class="<?php echo in_array('address_1', $billing_fields) ? 'selected' : ''; ?>">
-                                Address Line 1 <span class="required">*</span>
-                            </li>
-                            <li data-field="address_2" class="<?php echo in_array('address_2', $billing_fields) ? 'selected' : ''; ?>">
-                                Address Line 2
-                            </li>
-                            <li data-field="city" class="<?php echo in_array('city', $billing_fields) ? 'selected' : ''; ?>">
-                                City <span class="required">*</span>
-                            </li>
-                            <li data-field="state" class="<?php echo in_array('state', $billing_fields) ? 'selected' : ''; ?>">
-                                State/Province <span class="required">*</span>
-                            </li>
-                            <li data-field="postcode" class="<?php echo in_array('postcode', $billing_fields) ? 'selected' : ''; ?>">
-                                Postal Code <span class="required">*</span>
-                            </li>
-                            <li data-field="country" class="<?php echo in_array('country', $billing_fields) ? 'selected' : ''; ?>">
-                                Country <span class="required">*</span>
-                            </li>
-                            <li data-field="phone" class="<?php echo in_array('phone', $billing_fields) ? 'selected' : ''; ?>">
-                                Phone
-                            </li>
-                            <li data-field="email" class="<?php echo in_array('email', $billing_fields) ? 'selected' : ''; ?>">
-                                Email <span class="required">*</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="pfb-billing-fields-selected">
-                        <h4>Selected Fields</h4>
-                        <p>Click on a field to toggle selection. Required fields cannot be deselected.</p>
-                        <input type="hidden" name="pfb_billing_fields" id="pfb-billing-fields-input"
-                            value="<?php echo esc_attr(implode(',', $billing_fields)); ?>">
-                    </div>
-                </div>
-            </div>
-
-            <h3>Shipping Information</h3>
-            <table class="form-table">
-                <tr>
+                <tr id="pfb-shipping-option" <?php echo !$enable_billing ? 'style="display:none;"' : ''; ?>>
                     <th>Enable Shipping Form</th>
                     <td>
                         <label>
                             <input type="checkbox" name="pfb_enable_shipping" value="1"
                                 <?php checked($enable_shipping); ?> id="pfb-enable-shipping"
                                 <?php echo !$enable_billing ? 'disabled' : ''; ?>>
-                            Allow customers to enter shipping information
+                            Display shipping information form on payment forms
                         </label>
-                        <p class="description">When enabled, customers can provide shipping information different from billing.</p>
+                        <p class="description">When enabled, customers will be asked to provide shipping information.</p>
                     </td>
                 </tr>
-                <tr>
+                <tr id="pfb-same-as-billing-option" <?php echo !($enable_billing && $enable_shipping) ? 'style="display:none;"' : ''; ?>>
                     <th>Same as Billing Option</th>
                     <td>
                         <label>
                             <input type="checkbox" name="pfb_enable_same_as_billing" value="1"
-                                <?php checked(get_option('pfb_enable_same_as_billing', true)); ?>
-                                <?php echo !$enable_shipping ? 'disabled' : ''; ?>>
-                            Show "Same as billing address" option
+                                <?php checked($enable_same_as_billing); ?>
+                                <?php echo !($enable_billing && $enable_shipping) ? 'disabled' : ''; ?>>
+                            Allow customers to use billing address as shipping address
                         </label>
-                        <p class="description">When enabled, customers can choose to use their billing address for shipping.</p>
+                        <p class="description">When enabled, customers will see a "Same as billing address" checkbox.</p>
                     </td>
                 </tr>
             </table>
 
+            <div id="pfb-billing-fields-container" <?php echo !$enable_billing ? 'style="display:none;"' : ''; ?>>
+                <h3>Billing Fields</h3>
+                <p>Select which billing fields to display on your forms.</p>
+
+                <table class="form-table">
+                    <tr>
+                        <th>First Name</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="first_name"
+                                    <?php checked(in_array('first_name', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Last Name</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="last_name"
+                                    <?php checked(in_array('last_name', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Company</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="company"
+                                    <?php checked(in_array('company', $billing_fields)); ?>>
+                                Optional
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Address Line 1</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="address_1"
+                                    <?php checked(in_array('address_1', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Address Line 2</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="address_2"
+                                    <?php checked(in_array('address_2', $billing_fields)); ?>>
+                                Optional
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>City</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="city"
+                                    <?php checked(in_array('city', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>State/Province</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="state"
+                                    <?php checked(in_array('state', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Postal Code</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="postcode"
+                                    <?php checked(in_array('postcode', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Country</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="country"
+                                    <?php checked(in_array('country', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Email</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="email"
+                                    <?php checked(in_array('email', $billing_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Phone</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="billing_fields[]" value="phone"
+                                    <?php checked(in_array('phone', $billing_fields)); ?>>
+                                Optional
+                            </label>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
             <div id="pfb-shipping-fields-container" <?php echo !$enable_shipping ? 'style="display:none;"' : ''; ?>>
-                <h4>Shipping Fields</h4>
+                <h3>Shipping Fields</h3>
                 <p>Select which shipping fields to display on your forms.</p>
 
-                <div class="pfb-shipping-builder">
-                    <div class="pfb-shipping-fields-list">
-                        <h4>Available Fields</h4>
-                        <ul id="pfb-available-shipping-fields">
-                            <li data-field="first_name" class="<?php echo in_array('first_name', $shipping_fields) ? 'selected' : ''; ?>">
-                                First Name <span class="required">*</span>
-                            </li>
-                            <li data-field="last_name" class="<?php echo in_array('last_name', $shipping_fields) ? 'selected' : ''; ?>">
-                                Last Name <span class="required">*</span>
-                            </li>
-                            <li data-field="company" class="<?php echo in_array('company', $shipping_fields) ? 'selected' : ''; ?>">
-                                Company
-                            </li>
-                            <li data-field="address_1" class="<?php echo in_array('address_1', $shipping_fields) ? 'selected' : ''; ?>">
-                                Address Line 1 <span class="required">*</span>
-                            </li>
-                            <li data-field="address_2" class="<?php echo in_array('address_2', $shipping_fields) ? 'selected' : ''; ?>">
-                                Address Line 2
-                            </li>
-                            <li data-field="city" class="<?php echo in_array('city', $shipping_fields) ? 'selected' : ''; ?>">
-                                City <span class="required">*</span>
-                            </li>
-                            <li data-field="state" class="<?php echo in_array('state', $shipping_fields) ? 'selected' : ''; ?>">
-                                State/Province <span class="required">*</span>
-                            </li>
-                            <li data-field="postcode" class="<?php echo in_array('postcode', $shipping_fields) ? 'selected' : ''; ?>">
-                                Postal Code <span class="required">*</span>
-                            </li>
-                            <li data-field="country" class="<?php echo in_array('country', $shipping_fields) ? 'selected' : ''; ?>">
-                                Country <span class="required">*</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="pfb-shipping-fields-selected">
-                        <h4>Selected Fields</h4>
-                        <p>Click on a field to toggle selection. Required fields cannot be deselected.</p>
-                        <input type="hidden" name="pfb_shipping_fields" id="pfb-shipping-fields-input"
-                            value="<?php echo esc_attr(implode(',', $shipping_fields)); ?>">
-                    </div>
-                </div>
+                <table class="form-table">
+                    <tr>
+                        <th>First Name</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="first_name"
+                                    <?php checked(in_array('first_name', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Last Name</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="last_name"
+                                    <?php checked(in_array('last_name', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Company</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="company"
+                                    <?php checked(in_array('company', $shipping_fields)); ?>>
+                                Optional
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Address Line 1</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="address_1"
+                                    <?php checked(in_array('address_1', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Address Line 2</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="address_2"
+                                    <?php checked(in_array('address_2', $shipping_fields)); ?>>
+                                Optional
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>City</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="city"
+                                    <?php checked(in_array('city', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>State/Province</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="state"
+                                    <?php checked(in_array('state', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Postal Code</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="postcode"
+                                    <?php checked(in_array('postcode', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Country</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="country"
+                                    <?php checked(in_array('country', $shipping_fields)); ?> checked disabled>
+                                Required
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Phone</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="shipping_fields[]" value="phone"
+                                    <?php checked(in_array('phone', $shipping_fields)); ?>>
+                                Optional
+                            </label>
+                        </td>
+                    </tr>
+                </table>
             </div>
+
+            <script>
+                jQuery(document).ready(function($) {
+                    // Toggle billing fields container visibility
+                    $('#pfb-enable-billing').on('change', function() {
+                        if ($(this).is(':checked')) {
+                            $('#pfb-billing-fields-container').show();
+                            $('#pfb-shipping-option').show();
+                            $('#pfb-enable-shipping').prop('disabled', false);
+                        } else {
+                            $('#pfb-billing-fields-container').hide();
+                            $('#pfb-shipping-option').hide();
+                            $('#pfb-enable-shipping').prop('checked', false).prop('disabled', true);
+                            $('#pfb-shipping-fields-container').hide();
+                            $('#pfb-same-as-billing-option').hide();
+                            $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
+                        }
+                    });
+
+                    // Toggle shipping fields container visibility
+                    $('#pfb-enable-shipping').on('change', function() {
+                        if ($(this).is(':checked')) {
+                            $('#pfb-shipping-fields-container').show();
+                            $('#pfb-same-as-billing-option').show();
+                            $('input[name="pfb_enable_same_as_billing"]').prop('disabled', false);
+                        } else {
+                            $('#pfb-shipping-fields-container').hide();
+                            $('#pfb-same-as-billing-option').hide();
+                            $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
+                        }
+                    });
+
+                    // Process form submission to combine field arrays
+                    $('#pfb-billing-settings-form').on('submit', function() {
+                        // Process billing fields
+                        var billingFields = [];
+                        $('input[name="billing_fields[]"]:checked').each(function() {
+                            billingFields.push($(this).val());
+                        });
+
+                        // Add hidden input with combined billing fields
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'pfb_billing_fields',
+                            value: billingFields.join(',')
+                        }).appendTo(this);
+
+                        // Process shipping fields
+                        var shippingFields = [];
+                        $('input[name="shipping_fields[]"]:checked').each(function() {
+                            shippingFields.push($(this).val());
+                        });
+
+                        // Add hidden input with combined shipping fields
+                        $('<input>').attr({
+                            type: 'hidden',
+                            name: 'pfb_shipping_fields',
+                            value: shippingFields.join(',')
+                        }).appendTo(this);
+                    });
+                });
+            </script>
 
             <?php submit_button('Save Billing Settings'); ?>
         </form>
-
-        <script>
-            jQuery(document).ready(function($) {
-                // Toggle billing fields container visibility
-                $('#pfb-enable-billing').on('change', function() {
-                    if ($(this).is(':checked')) {
-                        $('#pfb-billing-fields-container').show();
-                        $('#pfb-enable-shipping').prop('disabled', false);
-                    } else {
-                        $('#pfb-billing-fields-container').hide();
-                        $('#pfb-enable-shipping').prop('checked', false).prop('disabled', true);
-                        $('#pfb-shipping-fields-container').hide();
-                        $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
-                    }
-                });
-
-                // Toggle shipping fields container visibility
-                $('#pfb-enable-shipping').on('change', function() {
-                    if ($(this).is(':checked')) {
-                        $('#pfb-shipping-fields-container').show();
-                        $('input[name="pfb_enable_same_as_billing"]').prop('disabled', false);
-                    } else {
-                        $('#pfb-shipping-fields-container').hide();
-                        $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
-                    }
-                });
-
-                // Handle billing field selection
-                $('#pfb-available-billing-fields li').on('click', function() {
-                    var field = $(this).data('field');
-                    var isRequired = $(this).find('.required').length > 0;
-
-                    // Don't allow deselecting required fields
-                    if (isRequired && $(this).hasClass('selected')) {
-                        return;
-                    }
-
-                    $(this).toggleClass('selected');
-
-                    // Update the hidden input with selected fields
-                    updateSelectedFields('billing');
-                });
-
-                // Handle shipping field selection
-                $('#pfb-available-shipping-fields li').on('click', function() {
-                    var field = $(this).data('field');
-                    var isRequired = $(this).find('.required').length > 0;
-
-                    // Don't allow deselecting required fields
-                    if (isRequired && $(this).hasClass('selected')) {
-                        return;
-                    }
-
-                    $(this).toggleClass('selected');
-
-                    // Update the hidden input with selected fields
-                    updateSelectedFields('shipping');
-                });
-
-                // Function to update the hidden input with selected fields
-                function updateSelectedFields(type) {
-                    var selectedFields = [];
-
-                    $('#pfb-available-' + type + '-fields li.selected').each(function() {
-                        selectedFields.push($(this).data('field'));
-                    });
-
-                    $('#pfb-' + type + '-fields-input').val(selectedFields.join(','));
-                }
-            });
-        </script>
     <?php
     }
 
