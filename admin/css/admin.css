@@ -1,218 +1,214 @@
 .form-builder-container {
-    padding: 20px;
+  padding: 20px;
 }
 
 .field-types {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .field-types button {
-    margin-right: 10px;
+  margin-right: 10px;
 }
 
 .field-row {
-    background: #f9f9f9;
-    padding: 15px;
-    margin-bottom: 10px;
-    border: 1px solid #ddd;
-    display: flex;
-    align-items: center;
+  background: #f9f9f9;
+  padding: 15px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
 }
 
 .field-row input[type="text"] {
-    flex: 1;
-    margin: 0 10px;
+  flex: 1;
+  margin: 0 10px;
 }
 
 /* Make sure customer email option is visible */
 .field-row label {
-    margin: 0 10px;
-    display: inline-block !important;
-    visibility: visible !important;
+  margin: 0 10px;
+  display: inline-block !important;
+  visibility: visible !important;
 }
 
 /* Style the customer email radio option */
 .field-row label input[name="customer_email_field"] {
-    margin-right: 5px;
+  margin-right: 5px;
 }
 
 .field-row label:has(input[name="customer_email_field"]) {
-    background-color: #e7f5fe;
-    padding: 3px 8px;
-    border-radius: 3px;
-    border: 1px solid #0073aa;
+  background-color: #e7f5fe;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid #0073aa;
 }
 
 .remove-field {
-    color: #dc3232;
-    cursor: pointer;
+  color: #dc3232;
+  cursor: pointer;
 }
 
 .payment-settings label {
-    display: inline-block;
-    min-width: 120px;
+  display: inline-block;
+  min-width: 120px;
 }
 
 .shortcode-info {
-    background: #fff;
-    padding: 15px;
+  background: #fff;
+  padding: 15px;
 }
 
 .shortcode-info code {
-    display: block;
-    padding: 10px;
-    background: #f1f1f1;
-    margin-top: 10px;
+  display: block;
+  padding: 10px;
+  background: #f1f1f1;
+  margin-top: 10px;
 }
-
-
-
 
 /* Orders table styles */
 .wp-list-table .column-status {
-    width: 10%;
+  width: 10%;
 }
 
 .wp-list-table .column-mode {
-    width: 8%;
+  width: 8%;
 }
 
 .wp-list-table .column-amount {
-    width: 10%;
+  width: 10%;
 }
 
 .wp-list-table .column-date {
-    width: 15%;
+  width: 15%;
 }
 
 /* Status styles */
 .status-pending {
-    color: #f0ad4e;
-    font-weight: bold;
+  color: #f0ad4e;
+  font-weight: bold;
 }
 
 .status-completed {
-    color: #5cb85c;
-    font-weight: bold;
+  color: #5cb85c;
+  font-weight: bold;
 }
 
 .status-failed {
-    color: #d9534f;
-    font-weight: bold;
+  color: #d9534f;
+  font-weight: bold;
 }
 
 /* Mode styles */
 .mode-test {
-    color: #5bc0de;
-    font-weight: bold;
+  color: #5bc0de;
+  font-weight: bold;
 }
 
 .mode-live {
-    color: #5cb85c;
-    font-weight: bold;
+  color: #5cb85c;
+  font-weight: bold;
 }
 
 /* Orders filters */
 .orders-filters {
-    margin: 1em 0;
-    padding: 10px;
-    background: #f9f9f9;
-    border: 1px solid #e5e5e5;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  margin: 1em 0;
+  padding: 10px;
+  background: #f9f9f9;
+  border: 1px solid #e5e5e5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .orders-filters select,
 .orders-filters input[type="text"] {
-    margin-right: 5px;
+  margin-right: 5px;
 }
-
 
 /* Field type buttons */
 .field-types button {
-    margin-right: 10px;
-    padding: 8px 12px;
-    background-color: #f7f7f7;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 13px;
+  margin-right: 10px;
+  padding: 8px 12px;
+  background-color: #f7f7f7;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
 }
 
 .field-types button:hover {
-    background-color: #f0f0f0;
-    border-color: #999;
+  background-color: #f0f0f0;
+  border-color: #999;
 }
 
 .field-types button.add-field[data-type="email"] {
-    background-color: #e7f5fe;
-    border-color: #0073aa;
-    color: #0073aa;
+  background-color: #e7f5fe;
+  border-color: #0073aa;
+  color: #0073aa;
 }
 
 .field-types button.add-field[data-type="email"]:hover {
-    background-color: #d9f0ff;
+  background-color: #d9f0ff;
 }
 
 /* Check Status button */
 .check-status-button {
-    margin-left: 10px !important;
-    vertical-align: middle !important;
-    background-color: #f7f7f7 !important;
-    border-color: #ccc !important;
-    color: #555 !important;
-    font-size: 11px !important;
-    height: auto !important;
-    padding: 2px 8px !important;
-    line-height: 1.5 !important;
+  margin-left: 10px !important;
+  vertical-align: middle !important;
+  background-color: #f7f7f7 !important;
+  border-color: #ccc !important;
+  color: #555 !important;
+  font-size: 11px !important;
+  height: auto !important;
+  padding: 2px 8px !important;
+  line-height: 1.5 !important;
 }
 
 .check-status-button:hover {
-    background-color: #f0f0f0 !important;
-    border-color: #999 !important;
+  background-color: #f0f0f0 !important;
+  border-color: #999 !important;
 }
 
 /* Email field notice */
 .email-field-notice {
-    background-color: #f0f8ff;
-    border-left: 4px solid #0073aa;
-    padding: 10px 12px;
-    margin-bottom: 15px;
+  background-color: #f0f8ff;
+  border-left: 4px solid #0073aa;
+  padding: 10px 12px;
+  margin-bottom: 15px;
 }
 
 .email-field-notice p {
-    margin: 0.5em 0;
+  margin: 0.5em 0;
 }
 
 .email-field-notice strong {
-    color: #0073aa;
+  color: #0073aa;
 }
 
 /* Style for customer email option */
 .customer-email-option {
-    display: none !important; /* Hide by default */
+  display: none !important; /* Hide by default */
 }
 
 /* Show for email fields */
 .field-row[data-type="email"] .customer-email-option {
-    display: inline-block !important;
+  display: inline-block !important;
 }
 
 /* Always show customer email option for email fields */
 .field-row[data-type="email"] .customer-email-option,
 .field-row input[name="field_type[]"][value="email"] ~ .customer-email-option {
-    display: inline-block !important;
-    margin: 0 10px !important;
-    background-color: #e7f5fe !important;
-    padding: 3px 8px !important;
-    border: 1px solid #0073aa !important;
-    border-radius: 3px !important;
+  display: inline-block !important;
+  margin: 0 10px !important;
+  background-color: #e7f5fe !important;
+  padding: 3px 8px !important;
+  border: 1px solid #0073aa !important;
+  border-radius: 3px !important;
 }
 
 /* Hide customer email option for non-email fields */
 .customer-email-option {
-    display: none !important;
+  display: none !important;
 }
 
 /* Add to admin.css */
@@ -236,7 +232,7 @@
   .two-column-container {
     flex-direction: column;
   }
-  
+
   .two-column-container .column {
     width: 100%;
   }
@@ -261,355 +257,387 @@
 
 /* Form Builder Container */
 .form-builder-container {
-    margin: 20px 0;
-    padding: 0;
+  margin: 20px 0;
+  padding: 0;
 }
 
 /* Email Field Notice */
 .email-field-notice {
-    background-color: #f8f8f8;
-    border-left: 4px solid #0073aa;
-    padding: 10px 15px;
-    margin-bottom: 20px;
+  background-color: #f8f8f8;
+  border-left: 4px solid #0073aa;
+  padding: 10px 15px;
+  margin-bottom: 20px;
 }
 
 /* Field Types Buttons */
 .field-types {
-    margin-bottom: 20px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .add-field-button {
-    background-color: #0073aa;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: background-color 0.2s;
+  background-color: #0073aa;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
 }
 
 .add-field-button:hover {
-    background-color: #005a87;
+  background-color: #005a87;
 }
 
 /* Form Fields Container */
 #form-fields-container {
-    margin-bottom: 20px;
-    min-height: 50px;
-    border: 1px dashed #ccc;
-    padding: 10px;
-    background-color: #fafafa;
+  margin-bottom: 20px;
+  min-height: 50px;
+  border: 1px dashed #ccc;
+  padding: 10px;
+  background-color: #fafafa;
 }
 
 #form-fields-container:empty {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
 }
 
 #form-fields-container:empty:before {
-    content: 'Drag and drop fields here or use the buttons above to add fields';
-    color: #999;
-    font-style: italic;
+  content: "Drag and drop fields here or use the buttons above to add fields";
+  color: #999;
+  font-style: italic;
 }
 
 /* Field Row */
 .field-row {
-    border: 1px solid #ddd;
-    margin-bottom: 10px;
-    background: #fff;
-    border-radius: 3px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .field-row:hover {
-    border-color: #999;
+  border-color: #999;
 }
 
 /* Field Header */
 .field-header {
-    padding: 10px 15px;
-    background: #f1f1f1;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: move;
-    border-radius: 3px 3px 0 0;
+  padding: 10px 15px;
+  background: #f1f1f1;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+  border-radius: 3px 3px 0 0;
 }
 
 .field-type {
-    font-weight: 600;
-    color: #23282d;
+  font-weight: 600;
+  color: #23282d;
 }
 
 .remove-field {
-    background-color: #dc3232;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: background-color 0.2s;
+  background-color: #dc3232;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
 }
 
 .remove-field:hover {
-    background-color: #b32424;
+  background-color: #b32424;
 }
 
 /* Field Body */
 .field-body {
-    padding: 15px;
+  padding: 15px;
 }
 
 .field-setting {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
 
 .field-setting:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .field-setting label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
 }
 
 .field-setting input[type="text"] {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
 }
 
 .field-setting input[type="text"]:focus {
-    border-color: #0073aa;
-    box-shadow: 0 0 0 1px #0073aa;
-    outline: none;
+  border-color: #0073aa;
+  box-shadow: 0 0 0 1px #0073aa;
+  outline: none;
 }
 
 /* Two Column Field */
 .column-container {
-    display: flex;
-    gap: 20px;
+  display: flex;
+  gap: 20px;
 }
 
 .column {
-    flex: 1;
+  flex: 1;
 }
 
 .left-column {
-    border-right: 1px dashed #ddd;
-    padding-right: 20px;
+  border-right: 1px dashed #ddd;
+  padding-right: 20px;
 }
 
 .right-column {
-    padding-left: 0;
+  padding-left: 0;
 }
 
 /* Customer Email Option */
 .customer-email-option {
-    display: flex;
-    align-items: center;
-    margin-top: 10px;
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
 }
 
 .customer-email-option input[type="radio"] {
-    margin-right: 5px;
+  margin-right: 5px;
 }
 
 /* Sortable Placeholder */
 .field-row-placeholder {
-    border: 2px dashed #0073aa;
-    background-color: rgba(0, 115, 170, 0.1);
-    margin-bottom: 10px;
-    height: 60px;
-    border-radius: 3px;
+  border: 2px dashed #0073aa;
+  background-color: rgba(0, 115, 170, 0.1);
+  margin-bottom: 10px;
+  height: 60px;
+  border-radius: 3px;
 }
 
 /* Payment Settings */
 .payment-settings {
-    background-color: #fff;
-    border: 1px solid #ddd;
-    padding: 15px;
-    margin-top: 20px;
-    border-radius: 3px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  padding: 15px;
+  margin-top: 20px;
+  border-radius: 3px;
 }
 
 .payment-settings h3 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+  margin-top: 0;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
 }
 
 .payment-settings label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
 }
 
 .payment-settings input[type="number"],
 .payment-settings select {
-    width: 100%;
-    max-width: 300px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
+  width: 100%;
+  max-width: 300px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
 }
 
 /* Responsive Adjustments */
 @media screen and (max-width: 782px) {
-    .column-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .left-column {
-        border-right: none;
-        border-bottom: 1px dashed #ddd;
-        padding-right: 0;
-        padding-bottom: 15px;
-    }
-    
-    .right-column {
-        padding-left: 0;
-        padding-top: 15px;
-    }
+  .column-container {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .left-column {
+    border-right: none;
+    border-bottom: 1px dashed #ddd;
+    padding-right: 0;
+    padding-bottom: 15px;
+  }
+
+  .right-column {
+    padding-left: 0;
+    padding-top: 15px;
+  }
 }
 
 /* WordPress Admin Integration */
 #payment_form_form_builder .inside {
-    padding: 0;
-    margin: 0;
+  padding: 0;
+  margin: 0;
 }
 
 #payment_form_payment_settings .inside {
-    padding: 12px;
+  padding: 12px;
 }
 
 /* Form Submit Button */
 .form-submit {
-    margin-top: 20px;
-    text-align: right;
+  margin-top: 20px;
+  text-align: right;
 }
 
 /* Shortcode Info */
 .shortcode-info {
-    background-color: #f8f8f8;
-    padding: 10px;
-    border-radius: 3px;
+  background-color: #f8f8f8;
+  padding: 10px;
+  border-radius: 3px;
 }
 
 .shortcode-info code {
-    display: block;
-    padding: 10px;
-    margin-top: 10px;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    font-size: 14px;
-    text-align: center;
+  display: block;
+  padding: 10px;
+  margin-top: 10px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 14px;
+  text-align: center;
 }
-
 
 /* Tabs Navigation */
 .pfb-tabs-nav {
-    margin: 0;
-    padding: 0;
-    border-bottom: 1px solid #ccc;
-    display: flex;
-    margin-bottom: 20px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  margin-bottom: 20px;
 }
 
 .pfb-tabs-nav li {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .pfb-tabs-nav li a {
-    display: block;
-    padding: 10px 15px;
-    text-decoration: none;
-    color: #555;
-    font-weight: 500;
-    background: #f7f7f7;
-    border: 1px solid #ccc;
-    border-bottom: none;
-    margin-right: 5px;
-    border-radius: 3px 3px 0 0;
+  display: block;
+  padding: 10px 15px;
+  text-decoration: none;
+  color: #555;
+  font-weight: 500;
+  background: #f7f7f7;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  margin-right: 5px;
+  border-radius: 3px 3px 0 0;
 }
 
 .pfb-tabs-nav li a.active {
-    background: #fff;
-    color: #0073aa;
-    border-bottom: 1px solid #fff;
-    margin-bottom: -1px;
+  background: #fff;
+  color: #0073aa;
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
 }
 
 .pfb-tabs-nav li a:hover {
-    background: #fff;
+  background: #fff;
 }
 
 /* Tab Content */
 .pfb-tab-content {
-    display: none;
-    padding: 15px;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-top: none;
-    margin-top: -1px;
+  display: none;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-top: none;
+  margin-top: -1px;
 }
 
 .pfb-tab-content.active {
-    display: block;
+  display: block;
 }
 
 /* Adjust existing styles */
 #form_builder .inside,
 #payment_settings .inside {
-    padding: 0;
-    margin: 0;
+  padding: 0;
+  margin: 0;
 }
-
 
 /* Email status styles */
 .email-status-sent {
-    color: #5cb85c;
-    font-weight: bold;
+  color: #5cb85c;
+  font-weight: bold;
 }
 
 .email-status-pending {
-    color: #f0ad4e;
-    font-weight: bold;
+  color: #f0ad4e;
+  font-weight: bold;
 }
 
 .email-status-na {
-    color: #999;
-    font-style: italic;
+  color: #999;
+  font-style: italic;
 }
 
 .send-email-button {
-    margin-left: 10px !important;
-    vertical-align: middle !important;
-    background-color: #f7f7f7 !important;
-    border-color: #ccc !important;
-    color: #555 !important;
-    font-size: 11px !important;
-    height: auto !important;
-    padding: 2px 8px !important;
-    line-height: 1.5 !important;
+  margin-left: 10px !important;
+  vertical-align: middle !important;
+  background-color: #f7f7f7 !important;
+  border-color: #ccc !important;
+  color: #555 !important;
+  font-size: 11px !important;
+  height: auto !important;
+  padding: 2px 8px !important;
+  line-height: 1.5 !important;
 }
 
 .send-email-button:hover {
-    background-color: #f0f0f0 !important;
-    border-color: #999 !important;
+  background-color: #f0f0f0 !important;
+  border-color: #999 !important;
+}
+
+/* Billing tab styles */
+.pfb-billing-builder,
+.pfb-shipping-builder {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.pfb-billing-fields-list,
+.pfb-shipping-fields-list,
+.pfb-billing-fields-selected,
+.pfb-shipping-fields-selected {
+  width: 48%;
+  margin-right: 2%;
+}
+
+#pfb-available-billing-fields li,
+#pfb-available-shipping-fields li {
+  padding: 10px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  margin-bottom: 5px;
+  cursor: pointer;
+}
+
+#pfb-available-billing-fields li.selected,
+#pfb-available-shipping-fields li.selected {
+  background: #e0f7fa;
+  border-color: #4dd0e1;
+}
+
+.required {
+  color: red;
 }

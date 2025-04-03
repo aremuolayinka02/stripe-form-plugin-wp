@@ -84,8 +84,11 @@ class PFB_Public
                                 <?php echo $field['required'] ? 'required' : ''; ?>>
                         <?php endif; ?>
                     </div>
+                    
                 <?php endif; ?>
             <?php endforeach; ?>
+
+            
 
             <div class="payment-section">
                 <div id="card-element"></div>
