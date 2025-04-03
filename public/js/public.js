@@ -102,3 +102,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
+
+jQuery(document).ready(function ($) {
+  // Toggle shipping fields visibility based on "Same as billing" checkbox
+  $("#shipping_same_as_billing").on("change", function () {
+    if ($(this).is(":checked")) {
+      $(".pfb-shipping-fields").hide();
+    } else {
+      $(".pfb-shipping-fields").show();
+    }
+  });
+
+  // Initialize the state based on the checkbox's initial state
+  if ($("#shipping_same_as_billing").is(":checked")) {
+    $(".pfb-shipping-fields").hide();
+  } else {
+    $(".pfb-shipping-fields").show();
+  }
+});

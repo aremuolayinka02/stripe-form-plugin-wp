@@ -288,6 +288,29 @@ class PFB_Stripe
             }
         }
 
+
+        //Send customer email notifications
+        if ($result !== false) {
+
+
+            // If payment status changed, trigger notifications
+            if ($status_changed) {
+                // Get the updated payment record
+                $payment_record = $wpdb->get_row($wpdb->prepare(
+                    "SELECT * FROM $table_name WHERE payment_intent = %s",
+                    $payment_intent_id
+                ));
+
+                // Trigger customer email notifications
+                do_action('pfb_payment_status_updated', $payment_record, $status);
+
+                // If payment is completed, send admin notification
+                if ($status === 'completed') {
+                    $this->maybe_send_completion_email($payment_record);
+                }
+            }
+        }
+
         return $result;
     }
 
@@ -371,23 +394,22 @@ class PFB_Stripe
 
             error_log("Retrieved payment intent: $payment_intent_id with status: {$payment_intent->status}");
 
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'pfb_submissions';
+
+            // Get the current payment record
+            $payment = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM $table_name WHERE payment_intent = %s",
+                $payment_intent_id
+            ));
+
+            if (!$payment) {
+                error_log("Payment record not found for intent: $payment_intent_id");
+                return false;
+            }
+
             // Check if the status has changed
             if ($payment_intent->status === 'succeeded') {
-                // Update the payment status in the database
-                global $wpdb;
-                $table_name = $wpdb->prefix . 'pfb_submissions';
-
-                // Get the current payment record
-                $payment = $wpdb->get_row($wpdb->prepare(
-                    "SELECT * FROM $table_name WHERE payment_intent = %s",
-                    $payment_intent_id
-                ));
-
-                if (!$payment) {
-                    error_log("Payment record not found for intent: $payment_intent_id");
-                    return false;
-                }
-
                 // Only update if the status is different
                 if ($payment->payment_status !== 'completed') {
                     $result = $wpdb->update(
@@ -406,12 +428,21 @@ class PFB_Stripe
                     if ($result !== false) {
                         error_log("Updated payment status to completed for intent: $payment_intent_id");
 
-                        // Send email notification if needed
+                        // Get the updated payment record
+                        $updated_payment = $wpdb->get_row($wpdb->prepare(
+                            "SELECT * FROM $table_name WHERE payment_intent = %s",
+                            $payment_intent_id
+                        ));
+
+                        // Trigger customer email notifications
+                        do_action('pfb_payment_status_updated', $updated_payment, 'completed');
+
+                        // Send admin email notification if needed
                         if (class_exists('PFB_Form_Handler')) {
                             $form_handler = new PFB_Form_Handler();
                             if (method_exists($form_handler, 'send_admin_notification')) {
-                                $submission_data = json_decode($payment->submission_data, true);
-                                $form_handler->send_admin_notification($payment->id, $payment->form_id, $submission_data);
+                                $submission_data = json_decode($updated_payment->submission_data, true);
+                                $form_handler->send_admin_notification($updated_payment->id, $updated_payment->form_id, $submission_data);
                             }
                         }
 
@@ -423,24 +454,35 @@ class PFB_Stripe
                     error_log("Payment already marked as completed: $payment_intent_id");
                 }
             } else if ($payment_intent->status === 'canceled' || $payment_intent->status === 'payment_failed') {
-                // Update to failed status
-                global $wpdb;
-                $table_name = $wpdb->prefix . 'pfb_submissions';
+                // Only update if the status is different
+                if ($payment->payment_status !== 'failed') {
+                    $result = $wpdb->update(
+                        $table_name,
+                        [
+                            'payment_status' => 'failed',
+                            'updated_at' => current_time('mysql')
+                        ],
+                        ['payment_intent' => $payment_intent_id],
+                        ['%s', '%s'],
+                        ['%s']
+                    );
 
-                $result = $wpdb->update(
-                    $table_name,
-                    [
-                        'payment_status' => 'failed',
-                        'updated_at' => current_time('mysql')
-                    ],
-                    ['payment_intent' => $payment_intent_id],
-                    ['%s', '%s'],
-                    ['%s']
-                );
+                    if ($result !== false) {
+                        error_log("Updated payment status to failed for intent: $payment_intent_id");
 
-                if ($result !== false) {
-                    error_log("Updated payment status to failed for intent: $payment_intent_id");
-                    return true;
+                        // Get the updated payment record
+                        $updated_payment = $wpdb->get_row($wpdb->prepare(
+                            "SELECT * FROM $table_name WHERE payment_intent = %s",
+                            $payment_intent_id
+                        ));
+
+                        // Trigger customer email notifications
+                        do_action('pfb_payment_status_updated', $updated_payment, 'failed');
+
+                        return true;
+                    }
+                } else {
+                    error_log("Payment already marked as failed: $payment_intent_id");
                 }
             } else {
                 error_log("Payment intent $payment_intent_id has status: {$payment_intent->status} - no action needed");

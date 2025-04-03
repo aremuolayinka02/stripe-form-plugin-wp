@@ -249,6 +249,80 @@ class PFB_Admin
                         <span class="description">Leave empty to use the site admin email: <?php echo esc_html(get_option('admin_email')); ?></span>
                     </p>
                 </div>
+                <div class="email-settings-section">
+                    <h4>Customer Notifications</h4>
+
+                    <?php
+                    // Get saved customer email settings
+                    $success_email_enabled = get_post_meta($post->ID, '_customer_success_email_enabled', true);
+                    $success_email_subject = get_post_meta($post->ID, '_customer_success_email_subject', true) ?: 'Payment Confirmation';
+                    $success_email_template = get_post_meta($post->ID, '_customer_success_email_template', true);
+
+                    $failed_email_enabled = get_post_meta($post->ID, '_customer_failed_email_enabled', true);
+                    $failed_email_subject = get_post_meta($post->ID, '_customer_failed_email_subject', true) ?: 'Payment Failed';
+                    $failed_email_template = get_post_meta($post->ID, '_customer_failed_email_template', true);
+                    ?>
+
+                    <div class="customer-email-settings">
+                        <h5>Successful Payment</h5>
+                        <p>
+                            <label>
+                                <input type="checkbox" name="customer_success_email_enabled" value="1" <?php checked($success_email_enabled, '1'); ?>>
+                                Send email notification to customer after successful payment
+                            </label>
+                        </p>
+
+                        <div class="success-email-template" style="<?php echo !$success_email_enabled ? 'display:none;' : ''; ?>">
+                            <p>
+                                <label>Email Subject:</label>
+                                <input type="text" name="customer_success_email_subject" value="<?php echo esc_attr($success_email_subject); ?>" class="regular-text">
+                            </p>
+
+                            <p>
+                                <label>Email Template:</label>
+                                <textarea name="customer_success_email_template" rows="8" class="large-text"><?php echo esc_textarea($success_email_template); ?></textarea>
+                            </p>
+
+                            <p class="description">Available variables: {customer_name}, {order_amount}, {order_id}, {payment_date}, {form_title}</p>
+                        </div>
+
+                        <h5>Failed Payment</h5>
+                        <p>
+                            <label>
+                                <input type="checkbox" name="customer_failed_email_enabled" value="1" <?php checked($failed_email_enabled, '1'); ?>>
+                                Send email notification to customer after failed payment
+                            </label>
+                        </p>
+
+                        <div class="failed-email-template" style="<?php echo !$failed_email_enabled ? 'display:none;' : ''; ?>">
+                            <p>
+                                <label>Email Subject:</label>
+                                <input type="text" name="customer_failed_email_subject" value="<?php echo esc_attr($failed_email_subject); ?>" class="regular-text">
+                            </p>
+
+                            <p>
+                                <label>Email Template:</label>
+                                <textarea name="customer_failed_email_template" rows="8" class="large-text"><?php echo esc_textarea($failed_email_template); ?></textarea>
+                            </p>
+
+                            <p class="description">Available variables: {customer_name}, {order_amount}, {order_id}, {payment_date}, {form_title}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    jQuery(document).ready(function($) {
+                        // Toggle success email template visibility
+                        $('input[name="customer_success_email_enabled"]').on('change', function() {
+                            $('.success-email-template').toggle(this.checked);
+                        });
+
+                        // Toggle failed email template visibility
+                        $('input[name="customer_failed_email_enabled"]').on('change', function() {
+                            $('.failed-email-template').toggle(this.checked);
+                        });
+                    });
+                </script>
             </div>
         </div>
 
@@ -602,6 +676,35 @@ class PFB_Admin
 
         if (isset($_POST['admin_email_recipients'])) {
             update_post_meta($post_id, '_admin_email_recipients', sanitize_text_field($_POST['admin_email_recipients']));
+        }
+
+        // Save customer email settings
+        if (isset($_POST['customer_success_email_enabled'])) {
+            update_post_meta($post_id, '_customer_success_email_enabled', '1');
+        } else {
+            delete_post_meta($post_id, '_customer_success_email_enabled');
+        }
+
+        if (isset($_POST['customer_success_email_subject'])) {
+            update_post_meta($post_id, '_customer_success_email_subject', sanitize_text_field($_POST['customer_success_email_subject']));
+        }
+
+        if (isset($_POST['customer_success_email_template'])) {
+            update_post_meta($post_id, '_customer_success_email_template', wp_kses_post($_POST['customer_success_email_template']));
+        }
+
+        if (isset($_POST['customer_failed_email_enabled'])) {
+            update_post_meta($post_id, '_customer_failed_email_enabled', '1');
+        } else {
+            delete_post_meta($post_id, '_customer_failed_email_enabled');
+        }
+
+        if (isset($_POST['customer_failed_email_subject'])) {
+            update_post_meta($post_id, '_customer_failed_email_subject', sanitize_text_field($_POST['customer_failed_email_subject']));
+        }
+
+        if (isset($_POST['customer_failed_email_template'])) {
+            update_post_meta($post_id, '_customer_failed_email_template', wp_kses_post($_POST['customer_failed_email_template']));
         }
     }
 

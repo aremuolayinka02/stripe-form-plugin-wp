@@ -7,141 +7,130 @@ class PFB_Public
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
     }
 
+
     /**
      * Render billing and shipping fields
      * 
-     * @param int $form_id The form ID
+     * @param int $form_id Form ID
      * @return string HTML for billing and shipping fields
      */
     public function render_billing_shipping_fields($form_id)
     {
+        // Get billing and shipping settings
         $enable_billing = get_option('pfb_enable_billing', false);
+        $enable_shipping = get_option('pfb_enable_shipping', false);
+        $enable_same_as_billing = get_option('pfb_enable_same_as_billing', true);
 
         if (!$enable_billing) {
             return '';
         }
 
-        $enable_shipping = get_option('pfb_enable_shipping', false);
-        $enable_same_as_billing = get_option('pfb_enable_same_as_billing', true);
-
-        // Get billing fields and layout
-        $billing_fields_option = get_option('pfb_billing_fields', '');
-        $billing_fields = !empty($billing_fields_option) ? explode(',', $billing_fields_option) : [];
-
+        // Get saved field layouts
         $billing_layout_option = get_option('pfb_billing_layout', '');
         $billing_layout = !empty($billing_layout_option) ? json_decode($billing_layout_option, true) : [];
-
-        if (empty($billing_layout)) {
-            // Use default layout if none is set
-            $billing_layout = [
-                ['first_name', 'last_name'],
-                ['company'],
-                ['address_1'],
-                ['address_2'],
-                ['city', 'state'],
-                ['postcode', 'country'],
-                ['phone', 'email']
-            ];
-        }
-
-        // Get shipping fields and layout
-        $shipping_fields_option = get_option('pfb_shipping_fields', '');
-        $shipping_fields = !empty($shipping_fields_option) ? explode(',', $shipping_fields_option) : [];
 
         $shipping_layout_option = get_option('pfb_shipping_layout', '');
         $shipping_layout = !empty($shipping_layout_option) ? json_decode($shipping_layout_option, true) : [];
 
-        if (empty($shipping_layout)) {
-            // Use default layout if none is set
-            $shipping_layout = [
-                ['first_name', 'last_name'],
-                ['company'],
-                ['address_1'],
-                ['address_2'],
-                ['city', 'state'],
-                ['postcode', 'country'],
-                ['phone']
-            ];
-        }
+        // All available fields with labels
+        $all_billing_fields = [
+            'first_name' => 'First Name',
+            'last_name' => 'Last Name',
+            'company' => 'Company',
+            'address_1' => 'Address Line 1',
+            'address_2' => 'Address Line 2',
+            'city' => 'City',
+            'state' => 'State/Province',
+            'postcode' => 'Postal Code',
+            'country' => 'Country',
+            'phone' => 'Phone',
+            'email' => 'Email'
+        ];
 
-        $output = '<div class="pfb-billing-shipping-container">';
+        $all_shipping_fields = [
+            'first_name' => 'First Name',
+            'last_name' => 'Last Name',
+            'company' => 'Company',
+            'address_1' => 'Address Line 1',
+            'address_2' => 'Address Line 2',
+            'city' => 'City',
+            'state' => 'State/Province',
+            'postcode' => 'Postal Code',
+            'country' => 'Country',
+            'phone' => 'Phone'
+        ];
 
-        // Billing Fields
-        if (!empty($billing_fields)) {
-            $output .= '<div class="pfb-billing-fields">';
-            $output .= '<h3>Billing Information</h3>';
+        ob_start();
+?>
+        <div class="pfb-billing-shipping-container">
+            <?php if ($enable_billing): ?>
+                <div class="pfb-billing-fields">
+                    <h3>Billing Information</h3>
+                    <?php foreach ($billing_layout as $row): ?>
+                        <div class="pfb-form-row">
+                            <?php foreach ($row as $field_id): ?>
+                                <?php if (isset($all_billing_fields[$field_id])): ?>
+                                    <div class="pfb-form-col">
+                                        <div class="pfb-form-field">
+                                            <label for="billing_<?php echo esc_attr($field_id); ?>">
+                                                <?php echo esc_html($all_billing_fields[$field_id]); ?>
+                                                <span class="required">*</span>
+                                            </label>
+                                            <input type="text" name="billing_<?php echo esc_attr($field_id); ?>" id="billing_<?php echo esc_attr($field_id); ?>" required>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
 
-            foreach ($billing_layout as $row) {
-                if (empty($row)) continue;
+            <?php if ($enable_billing && $enable_shipping): ?>
+                <div class="pfb-same-as-billing">
+                    <label>
+                        <input type="checkbox" name="shipping_same_as_billing" id="shipping_same_as_billing" <?php checked($enable_same_as_billing); ?>>
+                        Use my billing address for shipping
+                    </label>
+                </div>
 
-                $output .= '<div class="pfb-form-row">';
+                <div class="pfb-shipping-fields" <?php echo $enable_same_as_billing ? 'style="display:none;"' : ''; ?>>
+                    <h3>Shipping Information</h3>
+                    <?php foreach ($shipping_layout as $row): ?>
+                        <div class="pfb-form-row">
+                            <?php foreach ($row as $field_id): ?>
+                                <?php if (isset($all_shipping_fields[$field_id])): ?>
+                                    <div class="pfb-form-col">
+                                        <div class="pfb-form-field">
+                                            <label for="shipping_<?php echo esc_attr($field_id); ?>">
+                                                <?php echo esc_html($all_shipping_fields[$field_id]); ?>
+                                                <span class="required">*</span>
+                                            </label>
+                                            <input type="text" name="shipping_<?php echo esc_attr($field_id); ?>" id="shipping_<?php echo esc_attr($field_id); ?>" required>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
 
-                foreach ($row as $field_id) {
-                    if (!in_array($field_id, $billing_fields)) continue;
-
-                    $output .= '<div class="pfb-form-col">';
-                    $output .= $this->render_address_field('billing_' . $field_id, $field_id, false);
-                    $output .= '</div>';
-                }
-
-                $output .= '</div>';
-            }
-
-            $output .= '</div>';
-        }
-
-        // Shipping Fields
-        if ($enable_shipping) {
-            $output .= '<div class="pfb-shipping-fields">';
-            $output .= '<h3>Shipping Information</h3>';
-
-            if ($enable_same_as_billing) {
-                $output .= '<div class="pfb-same-as-billing">';
-                $output .= '<label>';
-                $output .= '<input type="checkbox" name="shipping_same_as_billing" id="shipping-same-as-billing" value="1" checked>';
-                $output .= ' Same as billing address';
-                $output .= '</label>';
-                $output .= '</div>';
-            }
-
-            $output .= '<div id="pfb-shipping-fields-container" style="display: none;">';
-
-            foreach ($shipping_layout as $row) {
-                if (empty($row)) continue;
-
-                $output .= '<div class="pfb-form-row">';
-
-                foreach ($row as $field_id) {
-                    if (!in_array($field_id, $shipping_fields)) continue;
-
-                    $output .= '<div class="pfb-form-col">';
-                    $output .= $this->render_address_field('shipping_' . $field_id, $field_id, false);
-                    $output .= '</div>';
-                }
-
-                $output .= '</div>';
-            }
-
-            $output .= '</div>';
-            $output .= '</div>';
-        }
-
-        $output .= '</div>';
-
-        // Add JavaScript for toggling shipping fields
-        $output .= '<script>
-        jQuery(document).ready(function($) {
-            $("#shipping-same-as-billing").on("change", function() {
-                if ($(this).is(":checked")) {
-                    $("#pfb-shipping-fields-container").hide();
-                } else {
-                    $("#pfb-shipping-fields-container").show();
-                }
+        <script>
+            jQuery(document).ready(function($) {
+                // Toggle shipping fields visibility based on "Same as billing" checkbox
+                $('#shipping_same_as_billing').on('change', function() {
+                    if ($(this).is(':checked')) {
+                        $('.pfb-shipping-fields').hide();
+                    } else {
+                        $('.pfb-shipping-fields').show();
+                    }
+                });
             });
-        });
-    </script>';
-
-        return $output;
+        </script>
+    <?php
+        return ob_get_clean();
     }
 
 
@@ -430,7 +419,7 @@ class PFB_Public
         $currency = get_post_meta($atts['id'], '_payment_currency', true);
 
         ob_start();
-?>
+    ?>
         <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
             <?php foreach ($form_fields as $field): ?>
                 <?php if ($field['type'] === 'two-column'): ?>
