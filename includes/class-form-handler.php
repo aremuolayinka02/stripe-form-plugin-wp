@@ -31,6 +31,83 @@ class PFB_Form_Handler
         }
     }
 
+    private function validate_form_data($form_data)
+    {
+        $errors = [];
+
+        // Check if billing is enabled
+        $enable_billing = get_option('pfb_enable_billing', false);
+        if ($enable_billing) {
+            $billing_errors = $this->validate_billing_fields($form_data);
+            if (!empty($billing_errors)) {
+                $errors = array_merge($errors, $billing_errors);
+            }
+
+            // Check if shipping is enabled
+            $enable_shipping = get_option('pfb_enable_shipping', false);
+            if ($enable_shipping) {
+                // Always validate shipping fields since we've already copied billing data to shipping
+                // when shipping_same_as_billing is true
+                $shipping_errors = $this->validate_shipping_fields($form_data);
+                if (!empty($shipping_errors)) {
+                    $errors = array_merge($errors, $shipping_errors);
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    private function validate_billing_fields($form_data)
+    {
+        $errors = [];
+        $required_fields = [
+            'billing_first_name' => 'First Name',
+            'billing_last_name' => 'Last Name',
+            'billing_address_1' => 'Address Line 1',
+            'billing_city' => 'City',
+            'billing_state' => 'State',
+            'billing_postcode' => 'Postal Code',
+            'billing_country' => 'Country',
+            'billing_email' => 'Email'
+        ];
+
+        foreach ($required_fields as $field => $label) {
+            if (empty($form_data[$field])) {
+                $errors[] = "Billing $label is required.";
+            }
+        }
+
+        // Validate email format if provided
+        if (!empty($form_data['billing_email']) && !is_email($form_data['billing_email'])) {
+            $errors[] = "Invalid billing email address.";
+        }
+
+        return $errors;
+    }
+
+    private function validate_shipping_fields($form_data)
+    {
+        $errors = [];
+        $required_fields = [
+            'shipping_first_name' => 'First Name',
+            'shipping_last_name' => 'Last Name',
+            'shipping_address_1' => 'Address Line 1',
+            'shipping_city' => 'City',
+            'shipping_state' => 'State',
+            'shipping_postcode' => 'Postal Code',
+            'shipping_country' => 'Country'
+        ];
+
+        foreach ($required_fields as $field => $label) {
+            if (empty($form_data[$field])) {
+                $errors[] = "Shipping $label is required.";
+            }
+        }
+
+        return $errors;
+    }
+
     public function process_form()
     {
         if (!$this->initialized) {
@@ -61,29 +138,57 @@ class PFB_Form_Handler
             return;
         }
 
+        // Check if shipping is same as billing BEFORE validation
+        $shipping_same_as_billing = isset($form_data['shipping_same_as_billing']) && $form_data['shipping_same_as_billing'] === '1';
+
+        // If shipping same as billing, copy billing values to shipping fields
+        if ($shipping_same_as_billing) {
+            $billing_fields = [
+                'first_name',
+                'last_name',
+                'address_1',
+                'address_2',
+                'city',
+                'state',
+                'postcode',
+                'country',
+                'email',
+                'phone'
+            ];
+
+            foreach ($billing_fields as $field) {
+                $billing_key = 'billing_' . $field;
+                $shipping_key = 'shipping_' . $field;
+                if (isset($form_data[$billing_key])) {
+                    $form_data[$shipping_key] = $form_data[$billing_key];
+                }
+            }
+        }
+
+        // Validate form data
+        $validation_errors = $this->validate_form_data($form_data);
+        if (!empty($validation_errors)) {
+            error_log('Form validation errors: ' . print_r($validation_errors, true));
+            wp_send_json_error([
+                'message' => 'Please check the form for errors.',
+                'errors' => $validation_errors
+            ]);
+            return;
+        }
+
         error_log('Form data received: ' . print_r($form_data, true));
 
         // Extract billing and shipping data
         $billing_data = [];
         $shipping_data = [];
-        $shipping_same_as_billing = false;
 
         foreach ($form_data as $key => $value) {
             if (strpos($key, 'billing_') === 0) {
                 $field = str_replace('billing_', '', $key);
                 $billing_data[$field] = sanitize_text_field($value);
-            } elseif (strpos($key, 'shipping_') === 0) {
+            } elseif (strpos($key, 'shipping_') === 0 && $key !== 'shipping_same_as_billing') {
                 $field = str_replace('shipping_', '', $key);
                 $shipping_data[$field] = sanitize_text_field($value);
-            } elseif ($key === 'shipping_same_as_billing') {
-                $shipping_same_as_billing = ($value === '1');
-            }
-        }
-
-        // If shipping is same as billing, copy billing data to shipping
-        if ($shipping_same_as_billing) {
-            foreach ($billing_data as $field => $value) {
-                $shipping_data[$field] = $value;
             }
         }
 

@@ -108,15 +108,29 @@ jQuery(document).ready(function ($) {
   $("#shipping_same_as_billing").on("change", function () {
     if ($(this).is(":checked")) {
       $(".pfb-shipping-fields").hide();
+      // Disable shipping fields
+      $('[name^="shipping_"]')
+        .not('[name="shipping_same_as_billing"]')
+        .prop("disabled", true);
     } else {
       $(".pfb-shipping-fields").show();
+      // Enable shipping fields
+      $('[name^="shipping_"]')
+        .not('[name="shipping_same_as_billing"]')
+        .prop("disabled", false);
     }
   });
 
   // Initialize the state based on the checkbox's initial state
   if ($("#shipping_same_as_billing").is(":checked")) {
     $(".pfb-shipping-fields").hide();
+    $('[name^="shipping_"]')
+      .not('[name="shipping_same_as_billing"]')
+      .prop("disabled", true);
   } else {
     $(".pfb-shipping-fields").show();
+    $('[name^="shipping_"]')
+      .not('[name="shipping_same_as_billing"]')
+      .prop("disabled", false);
   }
 });
