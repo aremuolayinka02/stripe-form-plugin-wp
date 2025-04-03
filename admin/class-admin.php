@@ -286,10 +286,10 @@ class PFB_Admin
         register_setting('pfb_billing_settings', 'pfb_enable_billing');
         register_setting('pfb_billing_settings', 'pfb_enable_shipping');
         register_setting('pfb_billing_settings', 'pfb_enable_same_as_billing');
-        register_setting('pfb_billing_settings', 'pfb_billing_fields');
-        register_setting('pfb_billing_settings', 'pfb_shipping_fields');
         register_setting('pfb_billing_settings', 'pfb_billing_layout');
+        register_setting('pfb_billing_settings', 'pfb_billing_fields');
         register_setting('pfb_billing_settings', 'pfb_shipping_layout');
+        register_setting('pfb_billing_settings', 'pfb_shipping_fields');
     }
 
     public function remove_unwanted_meta_boxes()
@@ -783,22 +783,46 @@ class PFB_Admin
         $enable_same_as_billing = get_option('pfb_enable_same_as_billing', true);
 
         // Get saved field layouts
-        $billing_layout = get_option('pfb_billing_layout', $this->get_default_billing_layout());
-        if (is_string($billing_layout)) {
-            $billing_layout = json_decode($billing_layout, true);
+        $billing_layout_option = get_option('pfb_billing_layout', '');
+        $billing_layout = !empty($billing_layout_option) ? json_decode($billing_layout_option, true) : $this->get_default_billing_layout();
+
+        if (empty($billing_layout) || !is_array($billing_layout)) {
+            $billing_layout = $this->get_default_billing_layout();
         }
 
-        $shipping_layout = get_option('pfb_shipping_layout', $this->get_default_shipping_layout());
-        if (is_string($shipping_layout)) {
-            $shipping_layout = json_decode($shipping_layout, true);
+        $shipping_layout_option = get_option('pfb_shipping_layout', '');
+        $shipping_layout = !empty($shipping_layout_option) ? json_decode($shipping_layout_option, true) : $this->get_default_shipping_layout();
+
+        if (empty($shipping_layout) || !is_array($shipping_layout)) {
+            $shipping_layout = $this->get_default_shipping_layout();
         }
 
         // Get selected fields - ensure they are arrays
         $billing_fields_option = get_option('pfb_billing_fields', '');
-        $billing_fields = !empty($billing_fields_option) ? explode(',', $billing_fields_option) : $this->get_default_billing_fields();
+        $billing_fields = !empty($billing_fields_option) ? explode(',', $billing_fields_option) : [];
+
+        // If no fields are selected, use all fields from the layout
+        if (empty($billing_fields)) {
+            $billing_fields = [];
+            foreach ($billing_layout as $row) {
+                foreach ($row as $field_id) {
+                    $billing_fields[] = $field_id;
+                }
+            }
+        }
 
         $shipping_fields_option = get_option('pfb_shipping_fields', '');
-        $shipping_fields = !empty($shipping_fields_option) ? explode(',', $shipping_fields_option) : $this->get_default_shipping_fields();
+        $shipping_fields = !empty($shipping_fields_option) ? explode(',', $shipping_fields_option) : [];
+
+        // If no fields are selected, use all fields from the layout
+        if (empty($shipping_fields)) {
+            $shipping_fields = [];
+            foreach ($shipping_layout as $row) {
+                foreach ($row as $field_id) {
+                    $shipping_fields[] = $field_id;
+                }
+            }
+        }
 
         // All available fields
         $all_billing_fields = [
@@ -1055,6 +1079,19 @@ class PFB_Admin
         <script>
             jQuery(document).ready(function($) {
                 // Toggle billing fields container visibility
+                $('#pfb-enable-billing').on('change', function() {
+                    if ($(this).is(':checked')) {
+                        $('#pfb-billing-fields-container').show();
+                        $('#pfb-enable-shipping').prop('disabled', false);
+                    } else {
+                        $('#pfb-billing-fields-container').hide();
+                        $('#pfb-enable-shipping').prop('checked', false).prop('disabled', true);
+                        $('#pfb-shipping-fields-container').hide();
+                        $('input[name="pfb_enable_same_as_billing"]').prop('disabled', true);
+                    }
+                });
+
+                // Toggle shipping fields container visibility
                 $('#pfb-enable-shipping, input[name="pfb_enable_same_as_billing"]').on('change', function() {
                     // If shipping is enabled
                     if ($('#pfb-enable-shipping').is(':checked')) {
@@ -1076,30 +1113,56 @@ class PFB_Admin
                     $('#pfb-shipping-fields-container').hide();
                 }
 
-                // Make available fields draggable
-                $('#pfb-available-billing-fields li, #pfb-available-shipping-fields li').draggable({
-                    connectToSortable: '.pfb-layout-row',
-                    helper: 'clone',
-                    revert: 'invalid',
-                    start: function(event, ui) {
-                        $(this).addClass('dragging');
-                    },
-                    stop: function(event, ui) {
-                        $(this).removeClass('dragging');
-                    }
-                });
+                // Initialize draggable for available fields
+                function initDraggable() {
+                    $('#pfb-available-billing-fields li, #pfb-available-shipping-fields li').draggable({
+                        connectToSortable: '.pfb-layout-row',
+                        helper: 'clone',
+                        revert: 'invalid',
+                        start: function(event, ui) {
+                            $(this).addClass('dragging');
+                        },
+                        stop: function(event, ui) {
+                            $(this).removeClass('dragging');
+                        }
+                    });
+                }
 
-                // Make layout rows sortable
-                $('.pfb-layout-row').sortable({
-                    items: '.pfb-layout-field',
-                    placeholder: 'pfb-layout-field-placeholder',
-                    connectWith: '.pfb-layout-row',
-                    update: function() {
-                        updateLayoutInputs();
-                    }
-                });
+                // Initialize sortable for layout rows
+                function initSortable() {
+                    $('.pfb-layout-row').sortable({
+                        items: '.pfb-layout-field',
+                        placeholder: 'pfb-layout-field-placeholder',
+                        connectWith: '.pfb-layout-row',
+                        receive: function(event, ui) {
+                            // Check if we're receiving an item from the available fields list
+                            if (ui.item.is('li')) {
+                                var fieldId = ui.item.data('field');
+                                var fieldLabel = ui.item.text().trim();
 
-                // Make layout container sortable
+                                // Create a proper layout field to replace the dragged li
+                                var layoutField = $('<div class="pfb-layout-field" data-field="' + fieldId + '">' +
+                                    fieldLabel +
+                                    '<span class="pfb-remove-field">×</span>' +
+                                    '</div>');
+
+                                // Replace the li with our properly formatted div
+                                ui.item.replaceWith(layoutField);
+
+                                // Remove from available fields list
+                                $('#pfb-available-billing-fields li[data-field="' + fieldId + '"], #pfb-available-shipping-fields li[data-field="' + fieldId + '"]').remove();
+
+                                // Update the inputs
+                                updateLayoutInputs();
+                            }
+                        },
+                        update: function() {
+                            updateLayoutInputs();
+                        }
+                    });
+                }
+
+                // Initialize sortable for layout containers
                 $('.pfb-layout-container').sortable({
                     items: '.pfb-layout-row',
                     placeholder: 'pfb-layout-row-placeholder',
@@ -1108,17 +1171,45 @@ class PFB_Admin
                     }
                 });
 
+                // Initialize existing elements
+                initDraggable();
+                initSortable();
+
                 // Add new row
                 $('.pfb-add-row').on('click', function() {
                     var container = $(this).closest('.pfb-layout-container');
                     var newRow = $('<div class="pfb-layout-row"></div>');
 
-                    container.append(newRow);
+                    // Insert the new row before the add row button
+                    $(this).before(newRow);
 
+                    // Make the new row sortable
                     newRow.sortable({
                         items: '.pfb-layout-field',
                         placeholder: 'pfb-layout-field-placeholder',
                         connectWith: '.pfb-layout-row',
+                        receive: function(event, ui) {
+                            // Check if we're receiving an item from the available fields list
+                            if (ui.item.is('li')) {
+                                var fieldId = ui.item.data('field');
+                                var fieldLabel = ui.item.text().trim();
+
+                                // Create a proper layout field to replace the dragged li
+                                var layoutField = $('<div class="pfb-layout-field" data-field="' + fieldId + '">' +
+                                    fieldLabel +
+                                    '<span class="pfb-remove-field">×</span>' +
+                                    '</div>');
+
+                                // Replace the li with our properly formatted div
+                                ui.item.replaceWith(layoutField);
+
+                                // Remove from available fields list
+                                $('#pfb-available-billing-fields li[data-field="' + fieldId + '"], #pfb-available-shipping-fields li[data-field="' + fieldId + '"]').remove();
+
+                                // Update the inputs
+                                updateLayoutInputs();
+                            }
+                        },
                         update: function() {
                             updateLayoutInputs();
                         }
@@ -1155,6 +1246,8 @@ class PFB_Admin
 
                 // Function to update hidden inputs with layout data
                 function updateLayoutInputs() {
+                    console.log('Updating layout inputs...');
+
                     // Update billing layout
                     var billingLayout = [];
                     $('#pfb-billing-layout .pfb-layout-row').each(function() {
@@ -1167,6 +1260,7 @@ class PFB_Admin
                         }
                     });
                     $('#pfb-billing-layout-input').val(JSON.stringify(billingLayout));
+                    console.log('Billing layout:', billingLayout);
 
                     // Update billing fields
                     var billingFields = [];
@@ -1174,6 +1268,7 @@ class PFB_Admin
                         billingFields.push($(this).data('field'));
                     });
                     $('#pfb-billing-fields-input').val(billingFields.join(','));
+                    console.log('Billing fields:', billingFields);
 
                     // Update shipping layout
                     var shippingLayout = [];
@@ -1187,6 +1282,7 @@ class PFB_Admin
                         }
                     });
                     $('#pfb-shipping-layout-input').val(JSON.stringify(shippingLayout));
+                    console.log('Shipping layout:', shippingLayout);
 
                     // Update shipping fields
                     var shippingFields = [];
@@ -1194,6 +1290,7 @@ class PFB_Admin
                         shippingFields.push($(this).data('field'));
                     });
                     $('#pfb-shipping-fields-input').val(shippingFields.join(','));
+                    console.log('Shipping fields:', shippingFields);
                 }
             });
         </script>
@@ -1538,6 +1635,18 @@ class PFB_Admin
 
     public function enqueue_scripts($hook)
     {
+        if (strpos($hook, 'pfb-settings') !== false || $hook == 'payment_form_page_pfb-settings') {
+            // Enqueue jQuery UI
+            wp_enqueue_script('jquery-ui-core');
+            wp_enqueue_script('jquery-ui-draggable');
+            wp_enqueue_script('jquery-ui-droppable');
+            wp_enqueue_script('jquery-ui-sortable');
+
+            wp_enqueue_style('pfb-admin', PFB_PLUGIN_URL . 'admin/css/admin.css', array(), PFB_VERSION);
+            return;
+        }
+
+
         // Load scripts for settings page
         if ($hook == 'payment_form_page_pfb-settings') {
             // Enqueue jQuery UI

@@ -64,7 +64,7 @@ class PFB_Public
             ];
         }
 
-        $output = '';
+        $output = '<div class="pfb-billing-shipping-container">';
 
         // Billing Fields
         if (!empty($billing_fields)) {
@@ -126,6 +126,8 @@ class PFB_Public
             $output .= '</div>';
         }
 
+        $output .= '</div>';
+
         // Add JavaScript for toggling shipping fields
         $output .= '<script>
         jQuery(document).ready(function($) {
@@ -141,6 +143,10 @@ class PFB_Public
 
         return $output;
     }
+
+
+
+
 
     /**
      * Get default billing layout
