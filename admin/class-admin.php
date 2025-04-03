@@ -24,6 +24,9 @@ class PFB_Admin
         // Handle database repair
         add_action('admin_init', array($this, 'handle_database_repair'));
 
+        // Register AJAX handlers
+        add_action('admin_init', array($this, 'register_ajax_handlers'));
+
         add_action('delete_post', array($this, 'delete_form_fields'));
 
         add_action('add_meta_boxes', array($this, 'remove_unwanted_meta_boxes'), 99);
@@ -72,24 +75,34 @@ class PFB_Admin
             isset($_POST['pfb_repair_nonce']) &&
             wp_verify_nonce($_POST['pfb_repair_nonce'], 'pfb_repair_database')
         ) {
-            // Create the main plugin instance to access create_tables
-            $plugin = payment_form_builder();
+            // Call our repair_database method
+            $result = $this->repair_database();
 
-            // Call the create_tables method
-            if (method_exists($plugin, 'create_tables')) {
-                $plugin->create_tables();
-
-                // Add success message
-                add_action('admin_notices', function () {
+            // Add success or error message based on result
+            if ($result['success']) {
+                add_action('admin_notices', function () use ($result) {
                     echo '<div class="notice notice-success is-dismissible">';
-                    echo '<p><strong>Database tables have been created/repaired successfully.</strong></p>';
+                    echo '<p><strong>Database tables have been repaired successfully.</strong></p>';
+                    if (!empty($result['updates'])) {
+                        echo '<ul>';
+                        foreach ($result['updates'] as $update) {
+                            echo '<li>' . esc_html($update) . '</li>';
+                        }
+                        echo '</ul>';
+                    }
                     echo '</div>';
                 });
             } else {
-                // Add error message
-                add_action('admin_notices', function () {
+                add_action('admin_notices', function () use ($result) {
                     echo '<div class="notice notice-error is-dismissible">';
-                    echo '<p><strong>Could not repair database: create_tables method not found.</strong></p>';
+                    echo '<p><strong>Could not repair database completely.</strong></p>';
+                    if (!empty($result['updates'])) {
+                        echo '<ul>';
+                        foreach ($result['updates'] as $update) {
+                            echo '<li>' . esc_html($update) . '</li>';
+                        }
+                        echo '</ul>';
+                    }
                     echo '</div>';
                 });
             }
@@ -701,6 +714,25 @@ class PFB_Admin
             'success' => $success,
             'updates' => $updates
         ];
+    }
+
+
+
+    public function register_ajax_handlers()
+    {
+        add_action('wp_ajax_pfb_repair_database', array($this, 'ajax_repair_database'));
+    }
+
+    public function ajax_repair_database()
+    {
+        check_ajax_referer('pfb_repair_database', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+        }
+
+        $result = $this->repair_database();
+        wp_send_json_success($result);
     }
 
     public function render_orders_page()
