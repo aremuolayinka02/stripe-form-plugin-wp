@@ -72,7 +72,16 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (!result.success) {
-        throw new Error(result.data || "Payment processing failed");
+        // Enhanced error handling
+        if (result.data && result.data.errors) {
+          // Create a formatted error message with line breaks
+          const errorMessage = result.data.errors.join("<br>");
+          errorElement.innerHTML = errorMessage;
+          submitButton.disabled = false;
+          return;
+        } else {
+          throw new Error(result.data || "Payment processing failed");
+        }
       }
 
       // Then confirm the card payment
@@ -82,8 +91,18 @@ document.addEventListener("DOMContentLoaded", function () {
           payment_method: {
             card: card,
             billing_details: {
-              name: formDataObj["Name"] || "",
-              email: formDataObj["Email Address"] || "",
+              name: formDataObj["billing_first_name"]
+                ? `${formDataObj["billing_first_name"]} ${formDataObj["billing_last_name"]}`
+                : "",
+              email: formDataObj["billing_email"] || "",
+              address: {
+                line1: formDataObj["billing_address_1"] || "",
+                line2: formDataObj["billing_address_2"] || "",
+                city: formDataObj["billing_city"] || "",
+                state: formDataObj["billing_state"] || "",
+                postal_code: formDataObj["billing_postcode"] || "",
+                country: formDataObj["billing_country"] || "",
+              },
             },
           },
         }
@@ -96,7 +115,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // Payment successful
       window.location.href = window.location.href + "?payment=success";
     } catch (error) {
-      const errorElement = document.getElementById("card-errors");
       errorElement.textContent = error.message;
       submitButton.disabled = false;
     }
@@ -104,14 +122,36 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 jQuery(document).ready(function ($) {
+  // Function to copy billing field values to shipping fields
+  function copyBillingToShipping() {
+    const billingFields = [
+      "first_name",
+      "last_name",
+      "company",
+      "address_1",
+      "address_2",
+      "city",
+      "state",
+      "postcode",
+      "country",
+      "phone",
+    ];
+
+    billingFields.forEach((field) => {
+      const billingValue = $(`[name="billing_${field}"]`).val();
+      $(`[name="shipping_${field}"]`).val(billingValue);
+    });
+  }
+
   // Toggle shipping fields visibility based on "Same as billing" checkbox
   $("#shipping_same_as_billing").on("change", function () {
     if ($(this).is(":checked")) {
       $(".pfb-shipping-fields").hide();
-      // Disable shipping fields
+      // Disable shipping fields and copy billing values
       $('[name^="shipping_"]')
         .not('[name="shipping_same_as_billing"]')
         .prop("disabled", true);
+      copyBillingToShipping();
     } else {
       $(".pfb-shipping-fields").show();
       // Enable shipping fields
@@ -127,10 +167,18 @@ jQuery(document).ready(function ($) {
     $('[name^="shipping_"]')
       .not('[name="shipping_same_as_billing"]')
       .prop("disabled", true);
+    copyBillingToShipping();
   } else {
     $(".pfb-shipping-fields").show();
     $('[name^="shipping_"]')
       .not('[name="shipping_same_as_billing"]')
       .prop("disabled", false);
   }
+
+  // Copy billing values to shipping when billing fields change and shipping is same as billing
+  $('[name^="billing_"]').on("change", function () {
+    if ($("#shipping_same_as_billing").is(":checked")) {
+      copyBillingToShipping();
+    }
+  });
 });

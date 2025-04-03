@@ -26,11 +26,11 @@ class PFB_Public
         }
 
         // Get saved field layouts
-        $billing_layout_option = get_option('pfb_billing_layout', '');
-        $billing_layout = !empty($billing_layout_option) ? json_decode($billing_layout_option, true) : [];
+            $billing_layout_option = get_option('pfb_billing_layout', '');
+            $billing_layout = !empty($billing_layout_option) ? json_decode($billing_layout_option, true) : [];
 
-        $shipping_layout_option = get_option('pfb_shipping_layout', '');
-        $shipping_layout = !empty($shipping_layout_option) ? json_decode($shipping_layout_option, true) : [];
+            $shipping_layout_option = get_option('pfb_shipping_layout', '');
+            $shipping_layout = !empty($shipping_layout_option) ? json_decode($shipping_layout_option, true) : [];
 
         // All available fields with labels
         $all_billing_fields = [
@@ -61,7 +61,7 @@ class PFB_Public
         ];
 
         ob_start();
-?>
+        ?>
         <div class="pfb-billing-shipping-container">
             <?php if ($enable_billing): ?>
                 <div class="pfb-billing-fields">
@@ -76,7 +76,10 @@ class PFB_Public
                                                 <?php echo esc_html($all_billing_fields[$field_id]); ?>
                                                 <span class="required">*</span>
                                             </label>
-                                            <input type="text" name="billing_<?php echo esc_attr($field_id); ?>" id="billing_<?php echo esc_attr($field_id); ?>" required>
+                                            <input type="text"
+                                                name="billing_<?php echo esc_attr($field_id); ?>"
+                                                id="billing_<?php echo esc_attr($field_id); ?>"
+                                                required>
                                         </div>
                                     </div>
                                 <?php endif; ?>
@@ -84,12 +87,15 @@ class PFB_Public
                         </div>
                     <?php endforeach; ?>
                 </div>
-            <?php endif; ?>
+               <?php endif; ?>
 
             <?php if ($enable_billing && $enable_shipping): ?>
                 <div class="pfb-same-as-billing">
                     <label>
-                        <input type="checkbox" name="shipping_same_as_billing" id="shipping_same_as_billing" <?php checked($enable_same_as_billing); ?>>
+                        <input type="checkbox"
+                            name="shipping_same_as_billing"
+                            id="shipping_same_as_billing"
+                            <?php checked($enable_same_as_billing); ?>>
                         Use my billing address for shipping
                     </label>
                 </div>
@@ -106,7 +112,10 @@ class PFB_Public
                                                 <?php echo esc_html($all_shipping_fields[$field_id]); ?>
                                                 <span class="required">*</span>
                                             </label>
-                                            <input type="text" name="shipping_<?php echo esc_attr($field_id); ?>" id="shipping_<?php echo esc_attr($field_id); ?>" required>
+                                            <input type="text"
+                                                name="shipping_<?php echo esc_attr($field_id); ?>"
+                                                id="shipping_<?php echo esc_attr($field_id); ?>"
+                                                required>
                                         </div>
                                     </div>
                                 <?php endif; ?>
@@ -118,13 +127,55 @@ class PFB_Public
         </div>
 
         <script>
-            jQuery(document).ready(function($) {
-                // Toggle shipping fields visibility based on "Same as billing" checkbox
-                $('#shipping_same_as_billing').on('change', function() {
-                    if ($(this).is(':checked')) {
-                        $('.pfb-shipping-fields').hide();
+            document.addEventListener('DOMContentLoaded', function() {
+                const shippingSameAsBilling = document.getElementById('shipping_same_as_billing');
+                const shippingFields = document.querySelector('.pfb-shipping-fields');
+                const shippingInputs = shippingFields.querySelectorAll('input[type="text"]');
+
+                function copyBillingToShipping() {
+                    shippingInputs.forEach(input => {
+                        const fieldName = input.name.replace('shipping_', '');
+                        const billingInput = document.querySelector(`input[name="billing_${fieldName}"]`);
+                        if (billingInput) {
+                            input.value = billingInput.value;
+                        }
+                    });
+                }
+
+                function toggleShippingFields() {
+                    if (shippingSameAsBilling.checked) {
+                        shippingFields.style.display = 'none';
+                        copyBillingToShipping();
                     } else {
-                        $('.pfb-shipping-fields').show();
+                        shippingFields.style.display = 'block';
+                        // Clear shipping fields when unchecked
+                        shippingInputs.forEach(input => input.value = '');
+                    }
+                }
+
+                // Initialize on page load
+                if (shippingSameAsBilling.checked) {
+                    shippingFields.style.display = 'none';
+                    copyBillingToShipping();
+                }
+
+                // Handle checkbox changes
+                shippingSameAsBilling.addEventListener('change', toggleShippingFields);
+
+                // Copy billing to shipping when billing fields change and checkbox is checked
+                document.querySelectorAll('input[name^="billing_"]').forEach(input => {
+                    input.addEventListener('change', () => {
+                        if (shippingSameAsBilling.checked) {
+                            copyBillingToShipping();
+                        }
+                    });
+                });
+
+                // Handle form submission
+                const form = document.querySelector('.payment-form');
+                form.addEventListener('submit', function(event) {
+                    if (shippingSameAsBilling.checked) {
+                        copyBillingToShipping();
                     }
                 });
             });
