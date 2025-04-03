@@ -4,24 +4,85 @@ document.addEventListener("DOMContentLoaded", function () {
   const card = elements.create("card");
   card.mount("#card-element");
 
+  // Add new helper functions
+  function showSuccessToast(message) {
+    let toastContainer = document.querySelector(".pfb-toast-container");
+    if (!toastContainer) {
+      toastContainer = document.createElement("div");
+      toastContainer.className = "pfb-toast-container";
+      document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = "pfb-toast";
+    toast.innerHTML = `
+      <div class="pfb-toast-content">
+        <svg class="pfb-toast-icon" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+        <span>${message}</span>
+      </div>
+    `;
+
+    toastContainer.appendChild(toast);
+    setTimeout(() => toast.classList.add("show"), 100);
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
+
+  function setFormLoading(form, isLoading) {
+    const submitButton = form.querySelector('button[type="submit"]');
+    const loadingOverlay = form.querySelector(".pfb-loading-overlay");
+
+    if (isLoading) {
+      if (!loadingOverlay) {
+        const overlay = document.createElement("div");
+        overlay.className = "pfb-loading-overlay";
+        overlay.innerHTML = `
+          <div class="pfb-spinner"></div>
+          <div class="pfb-loading-text">Processing payment...</div>
+        `;
+        form.appendChild(overlay);
+      }
+      submitButton.disabled = true;
+    } else {
+      if (loadingOverlay) {
+        loadingOverlay.remove();
+      }
+      submitButton.disabled = false;
+    }
+  }
+
+  function resetForm(form) {
+    form.reset();
+    card.clear();
+    const errorElement = document.getElementById("card-errors");
+    if (errorElement) {
+      errorElement.textContent = "";
+    }
+  }
+
+  function scrollToTop(form) {
+    const formTop = form.getBoundingClientRect().top + window.pageYOffset - 100;
+    window.scrollTo({ top: formTop, behavior: "smooth" });
+  }
+
   const form = document.querySelector(".payment-form");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const submitButton = form.querySelector('button[type="submit"]');
     const errorElement = document.getElementById("card-errors");
     errorElement.textContent = "";
 
     try {
-      // Disable submit button
-      submitButton.disabled = true;
+      setFormLoading(form, true);
 
-      // Get form data
       const formData = new FormData(form);
       const formId = form.id.replace("payment-form-", "");
       const formDataObj = Object.fromEntries(formData);
 
-      // First, send form data to get payment intent
       const response = await fetch(pfbData.ajaxUrl, {
         method: "POST",
         headers: {
@@ -33,7 +94,7 @@ document.addEventListener("DOMContentLoaded", function () {
           form_id: formId,
           form_data: JSON.stringify(formDataObj),
           site_url: window.location.origin,
-          initial_request: true, // Add this flag
+          initial_request: true,
         }).toString(),
         credentials: "same-origin",
       });
@@ -44,7 +105,6 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(result.data.message || "Payment initialization failed");
       }
 
-      // Now confirm the card payment with Stripe
       const { paymentIntent, error } = await stripe.confirmCardPayment(
         result.data.client_secret,
         {
@@ -65,7 +125,6 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(error.message);
       }
 
-      // If payment is successful, save the order
       if (paymentIntent.status === "succeeded") {
         const saveOrderResponse = await fetch(pfbData.ajaxUrl, {
           method: "POST",
@@ -88,12 +147,15 @@ document.addEventListener("DOMContentLoaded", function () {
           throw new Error(saveResult.data.message || "Failed to save order");
         }
 
-        // Redirect to success page
-        window.location.href = window.location.href + "?payment=success";
+        // Show success toast, reset form, and scroll to top instead of page reload
+        showSuccessToast("Payment successful! Thank you for your purchase.");
+        scrollToTop(form);
+        resetForm(form);
       }
     } catch (error) {
       errorElement.textContent = error.message;
-      submitButton.disabled = false;
+    } finally {
+      setFormLoading(form, false);
     }
   });
 });

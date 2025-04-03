@@ -116,3 +116,80 @@
         width: 100%;
     }
 }
+
+
+/* Loading Overlay */
+.pfb-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.pfb-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.pfb-loading-text {
+  margin-top: 10px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Success Toast */
+.pfb-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.pfb-toast {
+  background: #4CAF50;
+  color: white;
+  padding: 16px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transform: translateX(120%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.pfb-toast.show {
+  transform: translateX(0);
+}
+
+.pfb-toast-content {
+  display: flex;
+  align-items: center;
+}
+
+.pfb-toast-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Make sure the form container has position relative */
+.payment-form {
+  position: relative;
+}
