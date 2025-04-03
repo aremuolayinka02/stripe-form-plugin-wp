@@ -296,10 +296,11 @@ class PFB_Stripe
      */
     private function maybe_send_completion_email($payment_record)
     {
-        // Check if we've already sent an email for this payment
-        $email_sent = get_post_meta($payment_record->form_id, '_payment_' . $payment_record->id . '_email_sent', true);
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'pfb_submissions';
 
-        if ($email_sent) {
+        // Check if we've already sent an email for this payment using the database column
+        if ($payment_record->email_sent == 1) {
             error_log("Email already sent for payment ID: {$payment_record->id} - skipping");
             return;
         }
@@ -326,7 +327,17 @@ class PFB_Stripe
 
             if ($email_result) {
                 error_log("Email sent successfully for payment ID: {$payment_record->id}");
-                // Mark this payment as having received an email
+
+                // Update the email_sent column in the database
+                $wpdb->update(
+                    $table_name,
+                    ['email_sent' => 1],
+                    ['id' => $payment_record->id],
+                    ['%d'],
+                    ['%d']
+                );
+
+                // For backward compatibility, also update the post meta
                 update_post_meta($payment_record->form_id, '_payment_' . $payment_record->id . '_email_sent', '1');
             } else {
                 error_log("Failed to send email for payment ID: {$payment_record->id}");

@@ -151,59 +151,90 @@ class Payment_Form_Builder
         }
     }
 
+    /**
+     * Check pending payments and update their status
+     */
     public function check_pending_payments()
     {
         global $wpdb;
         $table_name = $wpdb->prefix . 'pfb_submissions';
 
-        error_log('Running scheduled check for pending payments');
-
-        // Get pending payments with payment_intent
+        // Get all pending payments older than 5 minutes
         $pending_payments = $wpdb->get_results(
-            "SELECT * FROM $table_name 
-        WHERE payment_status = 'pending' 
-        AND payment_intent IS NOT NULL 
-        AND payment_intent != '' 
-        LIMIT 25"  // Process in batches to avoid timeouts
+            $wpdb->prepare(
+                "SELECT * FROM $table_name 
+            WHERE payment_status = %s 
+            AND created_at < %s",
+                'pending',
+                date('Y-m-d H:i:s', strtotime('-5 minutes'))
+            )
         );
 
         if (empty($pending_payments)) {
-            error_log('No pending payments found to check');
+            error_log('No pending payments found to check.');
             return;
         }
 
-        error_log('Found ' . count($pending_payments) . ' pending payments to check');
-
-        // Load the Stripe class
-        if (!class_exists('PFB_Stripe')) {
-            require_once PFB_PLUGIN_DIR . 'includes/class-stripe.php';
-        }
-
-        $stripe = new PFB_Stripe();
-
-        if (!$stripe->is_ready()) {
-            error_log('Stripe is not properly configured. Cannot check payment status.');
-            return;
-        }
+        error_log('Found ' . count($pending_payments) . ' pending payments to check.');
 
         foreach ($pending_payments as $payment) {
-            error_log("Checking payment status for ID: {$payment->id}, Intent: {$payment->payment_intent}");
+            $payment_intent_id = $payment->payment_intent_id;
 
-            try {
-                // Use the existing check_payment_status method from your Stripe class
-                $result = $stripe->check_payment_status($payment->payment_intent);
-
-                if ($result) {
-                    error_log("Successfully updated payment ID: {$payment->id}");
-                } else {
-                    error_log("No status change for payment ID: {$payment->id}");
-                }
-            } catch (Exception $e) {
-                error_log("Error checking payment ID: {$payment->id} - " . $e->getMessage());
+            if (empty($payment_intent_id)) {
+                error_log('Payment ID ' . $payment->id . ' has no payment intent ID. Skipping.');
+                continue;
             }
 
-            // Add a small delay to avoid rate limiting
-            usleep(250000); // 0.25 seconds
+            error_log('Checking payment intent: ' . $payment_intent_id);
+
+            // Get the Stripe instance
+            $stripe = new PFB_Stripe();
+
+            // Check the payment status
+            $status = $stripe->check_payment_status($payment_intent_id);
+
+            if ($status && $status !== $payment->payment_status) {
+                error_log('Payment ' . $payment_intent_id . ' status changed from ' . $payment->payment_status . ' to ' . $status);
+
+                // Update the payment status
+                $wpdb->update(
+                    $table_name,
+                    array('payment_status' => $status),
+                    array('id' => $payment->id),
+                    array('%s'),
+                    array('%d')
+                );
+
+                // If payment is completed, send email notification if not already sent
+                if ($status === 'completed' && $payment->email_sent != 1) {
+                    error_log('Sending email notification for payment ' . $payment_intent_id);
+
+                    // Get the form handler instance
+                    $form_handler = new PFB_Form_Handler();
+
+                    // Get the form data
+                    $form_data = json_decode($payment->form_data, true);
+
+                    // Send the email notification
+                    $email_sent = $form_handler->send_admin_notification($payment->form_id, $form_data, $payment_intent_id);
+
+                    // Update the email_sent column
+                    if ($email_sent) {
+                        error_log('Email sent successfully for payment ' . $payment_intent_id);
+                        $wpdb->update(
+                            $table_name,
+                            array('email_sent' => 1),
+                            array('id' => $payment->id),
+                            array('%d'),
+                            array('%d')
+                        );
+                    } else {
+                        error_log('Failed to send email for payment ' . $payment_intent_id);
+                    }
+                }
+            } else {
+                error_log('Payment ' . $payment_intent_id . ' status unchanged: ' . $payment->payment_status);
+            }
         }
     }
 
