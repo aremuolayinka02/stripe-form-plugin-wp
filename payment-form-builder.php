@@ -71,7 +71,7 @@ class Payment_Form_Builder
     public function add_cron_interval($schedules)
     {
         $schedules['three_minutes'] = array(
-            'interval' => 180, // 5 minutes in seconds
+            'interval' => 180, // 3 minutes in seconds
             'display'  => esc_html__('Every 3 Minutes', 'payment-form-builder'),
         );
         return $schedules;
@@ -187,7 +187,7 @@ class Payment_Form_Builder
             WHERE payment_status = %s 
             AND created_at < %s",
                 'pending',
-                date('Y-m-d H:i:s', strtotime('-5 minutes'))
+                date('Y-m-d H:i:s', strtotime('-3 minutes'))
             )
         );
 
