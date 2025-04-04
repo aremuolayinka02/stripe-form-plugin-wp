@@ -14,6 +14,11 @@ class Payment_Form_Builder
 {
     private static $instance = null;
     private $errors = array();
+    private $admin;
+    private $public;
+    private $form_handler;
+    private $customer_emails;
+    private $stripe;
 
     public static function get_instance()
     {
@@ -420,10 +425,12 @@ class Payment_Form_Builder
             if (is_admin()) {
                 new PFB_Admin();
             }
-            new PFB_Public();
-            new PFB_Form_Handler();
-            new PFB_Customer_Emails();
-            new PFB_Stripe(); 
+
+            // Store the instance instead of creating a new one
+            $this->public = new PFB_Public();
+            $this->form_handler = new PFB_Form_Handler();
+            $this->customer_emails = new PFB_Customer_Emails();
+            $this->stripe = new PFB_Stripe();
 
             add_action('pfb_check_pending_payments', array($this, 'check_pending_payments'));
 
@@ -443,7 +450,7 @@ class Payment_Form_Builder
             'public/class-public.php' => 'Public class file',
             'includes/class-stripe.php' => 'Stripe class file',
             'includes/class-form-handler.php' => 'Form handler class file',
-            'includes/class-customer-emails.php' => 'Customer emails class file' 
+            'includes/class-customer-emails.php' => 'Customer emails class file'
         );
 
         foreach ($required_files as $file => $description) {
