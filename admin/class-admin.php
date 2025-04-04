@@ -409,10 +409,10 @@ class PFB_Admin
         ));
 
         register_setting('pfb_global_css_settings', 'pfb_global_css', array(
-        'type' => 'string',
-        'sanitize_callback' => 'wp_strip_all_tags',
-        'default' => '',
-    ));
+            'type' => 'string',
+            'sanitize_callback' => 'wp_strip_all_tags',
+            'default' => '',
+        ));
     }
 
     public function remove_unwanted_meta_boxes()
@@ -542,6 +542,7 @@ class PFB_Admin
     {
         $amount = get_post_meta($post->ID, '_payment_amount', true);
         $currency = get_post_meta($post->ID, '_payment_currency', true) ?: 'usd';
+        $shipping_amount = get_post_meta($post->ID, '_shipping_amount', true); // Fetch shipping amount
     ?>
         <div class="payment-settings">
             <p>
@@ -557,6 +558,13 @@ class PFB_Admin
                     <option value="eur" <?php selected($currency, 'eur'); ?>>EUR</option>
                     <option value="gbp" <?php selected($currency, 'gbp'); ?>>GBP</option>
                 </select>
+            </p>
+            <p>
+                <label>Shipping Amount:</label>
+                <input type="number" name="shipping_amount"
+                    value="<?php echo esc_attr($shipping_amount); ?>"
+                    step="0.01" min="0">
+                <span class="description">Enter the shipping cost if shipping is enabled.</span>
             </p>
         </div>
     <?php
@@ -752,6 +760,10 @@ class PFB_Admin
 
         if (isset($_POST['payment_currency'])) {
             update_post_meta($post_id, '_payment_currency', sanitize_text_field($_POST['payment_currency']));
+        }
+
+        if (isset($_POST['shipping_amount'])) {
+            update_post_meta($post_id, '_shipping_amount', floatval($_POST['shipping_amount']));
         }
 
         // Save customer email field reference in post meta for quick access

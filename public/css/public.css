@@ -199,3 +199,17 @@ body:has(.pfb-loading-overlay) {
 .payment-form {
   position: relative;
 }
+
+.payment-summary {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.payment-summary p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+}

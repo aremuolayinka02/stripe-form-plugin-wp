@@ -5,7 +5,6 @@ class PFB_Public
     {
         add_shortcode('payment_form', array($this, 'render_form'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
-        add_action('wp_enqueue_styles', array($this, 'enqueue_styles'));
     }
 
 
@@ -125,8 +124,6 @@ class PFB_Public
             'country' => 'Country',
             'phone' => 'Phone'
         ];
-
-        error_log('Settings: ' . print_r($settings['enable_billing'], true)); // Debugging line
 
         ob_start();
 ?>
@@ -275,78 +272,82 @@ class PFB_Public
             $form_fields = get_post_meta($atts['id'], '_form_fields', true);
         }
 
-        $amount = get_post_meta($atts['id'], '_payment_amount', true);
+        $amount = floatval(get_post_meta($atts['id'], '_payment_amount', true));
         $currency = get_post_meta($atts['id'], '_payment_currency', true);
+        $shipping_amount = floatval(get_post_meta($atts['id'], '_shipping_amount', true));
 
         ob_start();
     ?>
-    <div class="payment-form-container">
-        <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
-            <?php foreach ($form_fields as $field): ?>
-                <?php if ($field['type'] === 'two-column'): ?>
-                    <!-- Render two-column fields -->
-                    <div class="two-column-container">
-                        <div class="column">
+        <div class="payment-form-container">
+            <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
+                <?php foreach ($form_fields as $field): ?>
+                    <?php if ($field['type'] === 'two-column'): ?>
+                        <!-- Render two-column fields -->
+                        <div class="two-column-container">
+                            <div class="column">
+                                <label>
+                                    <?php echo esc_html($field['label'][0]); ?>
+                                    <?php if ($field['required'][0]): ?>
+                                        <span class="required">*</span>
+                                    <?php endif; ?>
+                                </label>
+                                <input type="text" name="<?php echo esc_attr($field['label'][0]); ?>"
+                                    <?php echo $field['required'][0] ? 'required' : ''; ?>>
+                            </div>
+                            <div class="column">
+                                <label>
+                                    <?php echo esc_html($field['label'][1]); ?>
+                                    <?php if ($field['required'][1]): ?>
+                                        <span class="required">*</span>
+                                    <?php endif; ?>
+                                </label>
+                                <input type="text" name="<?php echo esc_attr($field['label'][1]); ?>"
+                                    <?php echo $field['required'][1] ? 'required' : ''; ?>>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <!-- Render regular fields -->
+                        <div class="form-field">
                             <label>
-                                <?php echo esc_html($field['label'][0]); ?>
-                                <?php if ($field['required'][0]): ?>
+                                <?php echo esc_html($field['label']); ?>
+                                <?php if ($field['required']): ?>
                                     <span class="required">*</span>
                                 <?php endif; ?>
                             </label>
-                            <input type="text" name="<?php echo esc_attr($field['label'][0]); ?>"
-                                <?php echo $field['required'][0] ? 'required' : ''; ?>>
-                        </div>
-                        <div class="column">
-                            <label>
-                                <?php echo esc_html($field['label'][1]); ?>
-                                <?php if ($field['required'][1]): ?>
-                                    <span class="required">*</span>
-                                <?php endif; ?>
-                            </label>
-                            <input type="text" name="<?php echo esc_attr($field['label'][1]); ?>"
-                                <?php echo $field['required'][1] ? 'required' : ''; ?>>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <!-- Render regular fields -->
-                    <div class="form-field">
-                        <label>
-                            <?php echo esc_html($field['label']); ?>
-                            <?php if ($field['required']): ?>
-                                <span class="required">*</span>
+
+                            <?php if ($field['type'] === 'textarea'): ?>
+                                <textarea name="<?php echo esc_attr($field['label']); ?>"
+                                    <?php echo $field['required'] ? 'required' : ''; ?>></textarea>
+                            <?php else: ?>
+                                <input type="<?php echo esc_attr($field['type']); ?>"
+                                    name="<?php echo esc_attr($field['label']); ?>"
+                                    <?php echo $field['required'] ? 'required' : ''; ?>>
                             <?php endif; ?>
-                        </label>
+                        </div>
 
-                        <?php if ($field['type'] === 'textarea'): ?>
-                            <textarea name="<?php echo esc_attr($field['label']); ?>"
-                                <?php echo $field['required'] ? 'required' : ''; ?>></textarea>
-                        <?php else: ?>
-                            <input type="<?php echo esc_attr($field['type']); ?>"
-                                name="<?php echo esc_attr($field['label']); ?>"
-                                <?php echo $field['required'] ? 'required' : ''; ?>>
-                        <?php endif; ?>
-                    </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
 
-                <?php endif; ?>
-            <?php endforeach; ?>
+                <?php
+                // Add billing and shipping fields here
+                echo $this->render_billing_shipping_fields($atts['id']);
+                ?>
 
-
-
-            <?php
-            // Add billing and shipping fields here
-            echo $this->render_billing_shipping_fields($atts['id']);
-            ?>
+                <div class="payment-summary">
+                    <p><strong>Delivery Cost:</strong> <?php echo esc_html($currency . ' ' . number_format($shipping_amount, 2)); ?></p>
+                    <p><strong>Total + Delivery Cost:</strong> <?php echo esc_html($currency . ' ' . number_format($amount + $shipping_amount, 2)); ?></p>
+                </div>
 
 
 
-            <div class="payment-section">
-                <div id="card-element"></div>
-                <div id="card-errors"></div>
-            </div>
+                <div class="payment-section">
+                    <div id="card-element"></div>
+                    <div id="card-errors"></div>
+                </div>
 
-            <button type="submit">Pay <?php echo esc_html($amount . ' ' . strtoupper($currency)); ?></button>
-        </form>
-    </div>
+                <button type="submit">Pay <?php echo esc_html($amount . ' ' . strtoupper($currency)); ?></button>
+            </form>
+        </div>
 <?php
         return ob_get_clean();
     }
@@ -375,6 +376,27 @@ class PFB_Public
             'all'
         );
 
+        // Get and add global CSS
+        global $wpdb;
+        $global_css = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+                'pfb_global_css'
+            )
+        );
+
+        if (!empty($global_css)) {
+            // Wrap the CSS in the form container selector
+            $wrapped_css = ".payment-form-container {
+            " . wp_strip_all_tags($global_css) . "
+        }";
+
+            error_log('Adding global CSS: ' . $wrapped_css);
+
+            // Add the CSS inline
+            wp_add_inline_style('payment-form-builder-public', $wrapped_css);
+        }
+
         $test_mode = get_option('pfb_test_mode', true);
         $public_key = $test_mode
             ? get_option('pfb_test_public_key')
@@ -402,30 +424,5 @@ class PFB_Public
             'publicKey' => $public_key,
             'nonce' => wp_create_nonce('process_payment_form')
         ));
-    }
-
-    public function enqueue_styles()
-    {
-        wp_enqueue_style('payment-form-builder-public', plugin_dir_url(__FILE__) . 'css/payment-form-builder-public.css', array(), $this->version, 'all');
-
-    // Get global CSS directly from database
-    global $wpdb;
-    $global_css = $wpdb->get_var(
-        $wpdb->prepare(
-            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
-            'pfb_global_css'
-        )
-    );
-
-    if (!empty($global_css)) {
-        // Wrap the CSS in the form container selector
-        $wrapped_css = ".payment-form-container {
-            /* Global CSS */
-            " . wp_strip_all_tags($global_css) . "
-        }";
-        
-        // Add the CSS inline
-        wp_add_inline_style('payment-form-builder-public', $wrapped_css);
-    }
     }
 }
