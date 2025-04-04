@@ -6,10 +6,6 @@
   margin-bottom: 20px;
 }
 
-.field-types button {
-  margin-right: 10px;
-}
-
 .field-row {
   background: #f9f9f9;
   padding: 15px;
@@ -140,6 +136,7 @@
   border-radius: 3px;
   cursor: pointer;
   font-size: 13px;
+  color: #000;
 }
 
 .field-types button:hover {
@@ -525,9 +522,8 @@
 .pfb-tabs-nav {
   margin: 0;
   padding: 0;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 2px solid #ccc;
   display: flex;
-  margin-bottom: 20px;
 }
 
 .pfb-tabs-nav li {
@@ -550,14 +546,12 @@
 }
 
 .pfb-tabs-nav li a.active {
-  background: #fff;
-  color: #0073aa;
-  border-bottom: 1px solid #fff;
-  margin-bottom: -1px;
+  background: #0073aa;
+    color: #fff;
 }
 
 .pfb-tabs-nav li a:hover {
-  background: #fff;
+  background: #0073aa;
 }
 
 /* Tab Content */
