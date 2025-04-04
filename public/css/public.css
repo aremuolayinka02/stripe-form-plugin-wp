@@ -120,7 +120,7 @@
 
 /* Loading Overlay */
 .pfb-loading-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -131,6 +131,12 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
+}
+
+body:has(.pfb-loading-overlay) {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
 }
 
 .pfb-spinner {

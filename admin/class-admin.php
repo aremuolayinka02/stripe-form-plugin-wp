@@ -31,6 +31,8 @@ class PFB_Admin
 
         add_action('add_meta_boxes', array($this, 'remove_unwanted_meta_boxes'), 99);
 
+        add_action('admin_init', array($this, 'handle_css_cache_clear'));
+
         // Add action to clear cache when settings are updated
         add_action('update_option_pfb_billing_layout', array($this, 'handle_settings_update'), 10, 3);
         add_action('update_option_pfb_enable_billing', array($this, 'handle_settings_update'), 10, 3);
@@ -405,6 +407,12 @@ class PFB_Admin
         register_setting('pfb_billing_settings', 'pfb_shipping_fields', array(
             'sanitize_callback' => array($this, 'sanitize_fields')
         ));
+
+        register_setting('pfb_global_css_settings', 'pfb_global_css', array(
+        'type' => 'string',
+        'sanitize_callback' => 'wp_strip_all_tags',
+        'default' => '',
+    ));
     }
 
     public function remove_unwanted_meta_boxes()
@@ -814,6 +822,7 @@ class PFB_Admin
                 <a href="?post_type=payment_form&page=pfb-settings&tab=general" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">General</a>
                 <a href="?post_type=payment_form&page=pfb-settings&tab=database" class="nav-tab <?php echo $active_tab == 'database' ? 'nav-tab-active' : ''; ?>">Database Management</a>
                 <a href="?post_type=payment_form&page=pfb-settings&tab=billing" class="nav-tab <?php echo $active_tab == 'billing' ? 'nav-tab-active' : ''; ?>">Billing</a>
+                <a href="?post_type=payment_form&page=pfb-settings&tab=global_css" class="nav-tab <?php echo $active_tab == 'global_css' ? 'nav-tab-active' : ''; ?>">Global CSS</a>
             </h2>
 
             <?php
@@ -824,11 +833,16 @@ class PFB_Admin
                 $this->render_database_settings_tab();
             } elseif ($active_tab == 'billing') {
                 $this->render_billing_settings_tab();
+            } elseif ($active_tab == 'global_css') {
+                $this->render_global_css_settings();
             }
             ?>
         </div>
     <?php
     }
+
+
+
 
     /**
      * Render the General Settings tab
@@ -1695,48 +1709,75 @@ class PFB_Admin
         ];
     }
 
-
-    /**
-     * Get default billing fields
-     * 
-     * @return array Default billing fields
-     */
-    private function get_default_billing_fields()
+    public function handle_css_cache_clear()
     {
-        return [
-            'first_name',
-            'last_name',
-            'company',
-            'address_1',
-            'address_2',
-            'city',
-            'state',
-            'postcode',
-            'country',
-            'phone',
-            'email'
-        ];
+        if (
+            isset($_POST['pfb_clear_css_cache']) &&
+            isset($_POST['pfb_css_cache_nonce']) &&
+            wp_verify_nonce($_POST['pfb_css_cache_nonce'], 'pfb_clear_css_cache')
+        ) {
+            wp_cache_delete('pfb_global_css', 'options');
+            add_action('admin_notices', function () {
+                echo '<div class="notice notice-success is-dismissible"><p>CSS cache has been cleared.</p></div>';
+            });
+        }
     }
 
-    /**
-     * Get default shipping fields
-     * 
-     * @return array Default shipping fields
-     */
-    private function get_default_shipping_fields()
+
+    public function render_global_css_settings()
     {
-        return [
-            'first_name',
-            'last_name',
-            'company',
-            'address_1',
-            'address_2',
-            'city',
-            'state',
-            'postcode',
-            'country',
-            'phone'
-        ];
+        // Get the saved CSS directly from the database without cache
+        global $wpdb;
+        $global_css = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+                'pfb_global_css'
+            )
+        );
+
+        // Unserialize if needed (WordPress serializes option values)
+        $global_css = maybe_unserialize($global_css);
+
+        // Register the setting if not already registered
+        if (!get_registered_settings()['pfb_global_css']) {
+            register_setting('pfb_global_css_settings', 'pfb_global_css', array(
+                'type' => 'string',
+                'sanitize_callback' => 'wp_strip_all_tags',
+                'default' => '',
+            ));
+        }
+
+        // Display the editor
+        echo '<form method="post" action="options.php">';
+        settings_fields('pfb_global_css_settings');
+        do_settings_sections('pfb_global_css_settings');
+
+        echo '<table class="form-table">';
+        echo '<tr>';
+        echo '<th scope="row"><label for="pfb_global_css">' . __('Custom CSS', 'payment-form-builder') . '</label></th>';
+        echo '<td>';
+        wp_editor($global_css, 'pfb_global_css', array(
+            'textarea_name' => 'pfb_global_css',
+            'textarea_rows' => 15,
+            'media_buttons' => false,
+            'teeny' => true,
+            'tinymce' => false, // Disable visual editor
+            'quicktags' => array('buttons' => 'strong,em,link,block,del,ins,img,code'),
+        ));
+        echo '<p class="description">' . __('Add custom CSS here to override the styling of the payment form. Changes will take effect immediately.', 'payment-form-builder') . '</p>';
+        echo '</td>';
+        echo '</tr>';
+        echo '</table>';
+
+        submit_button(__('Save CSS', 'payment-form-builder'));
+        echo '</form>';
+
+        // Add a clear cache button
+        echo '<form method="post" action="">';
+        wp_nonce_field('pfb_clear_css_cache', 'pfb_css_cache_nonce');
+        echo '<input type="hidden" name="pfb_clear_css_cache" value="1">';
+        submit_button(__('Clear CSS Cache', 'payment-form-builder'), 'secondary');
+        echo '</form>';
     }
 
 

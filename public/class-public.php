@@ -5,54 +5,46 @@ class PFB_Public
     {
         add_shortcode('payment_form', array($this, 'render_form'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+        add_action('wp_enqueue_styles', array($this, 'enqueue_styles'));
+    }
+
+
+    private function get_option_without_cache($option_name)
+    {
+        global $wpdb;
+
+        // Fetch the option directly from the database
+        $option_value = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+                $option_name
+            )
+        );
+
+        // If the option exists, unserialize it (WordPress stores serialized data for arrays/objects)
+        if (!is_null($option_value)) {
+            return maybe_unserialize($option_value);
+        }
+
+        // Return false if the option does not exist
+        return false;
     }
 
 
 
     private function get_fresh_settings()
     {
-        global $wpdb;
+        // Get settings directly from database without cache
+        $settings = array(
+            'enable_billing' => $this->get_option_without_cache('pfb_enable_billing', true),
+            'enable_shipping' => $this->get_option_without_cache('pfb_enable_shipping', false),
+            'enable_same_as_billing' => $this->get_option_without_cache('pfb_enable_same_as_billing', true),
+            'billing_layout' => json_decode($this->get_option_without_cache('pfb_billing_layout', ''), true),
+            'shipping_layout' => json_decode($this->get_option_without_cache('pfb_shipping_layout', ''), true)
+        );
 
-        // Get all relevant options directly from the database
-        $options = [
-            'pfb_enable_billing' => get_option('pfb_enable_billing'),
-            'pfb_enable_shipping' => get_option('pfb_enable_shipping'),
-            'pfb_enable_same_as_billing' => get_option('pfb_enable_same_as_billing'),
-            'pfb_billing_layout' => get_option('pfb_billing_layout'),
-            'pfb_shipping_layout' => get_option('pfb_shipping_layout')
-        ];
-
-        error_log('Raw options from database: ' . print_r($options, true));
-
-        // Initialize settings with proper type conversion
-        $settings = [
-            'enable_billing' => filter_var($options['pfb_enable_billing'], FILTER_VALIDATE_BOOLEAN),
-            'enable_shipping' => filter_var($options['pfb_enable_shipping'], FILTER_VALIDATE_BOOLEAN),
-            'enable_same_as_billing' => filter_var($options['pfb_enable_same_as_billing'], FILTER_VALIDATE_BOOLEAN),
-            'billing_layout' => null,
-            'shipping_layout' => null
-        ];
-
-        // Try to decode billing layout
-        $billing_layout = json_decode($options['pfb_billing_layout'], true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($billing_layout)) {
-            $settings['billing_layout'] = $billing_layout;
-        } else {
-            error_log('Failed to decode billing layout: ' . json_last_error_msg());
-            error_log('Raw billing layout: ' . print_r($options['pfb_billing_layout'], true));
-        }
-
-        // Try to decode shipping layout
-        $shipping_layout = json_decode($options['pfb_shipping_layout'], true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($shipping_layout)) {
-            $settings['shipping_layout'] = $shipping_layout;
-        } else {
-            error_log('Failed to decode shipping layout: ' . json_last_error_msg());
-            error_log('Raw shipping layout: ' . print_r($options['pfb_shipping_layout'], true));
-        }
-
-        // Set default layouts if needed
-        if (empty($settings['billing_layout'])) {
+        // If billing layout is empty or invalid, use default
+        if (empty($settings['billing_layout']) || !is_array($settings['billing_layout'])) {
             $settings['billing_layout'] = [
                 ['first_name', 'last_name'],
                 ['company'],
@@ -65,7 +57,8 @@ class PFB_Public
             ];
         }
 
-        if (empty($settings['shipping_layout'])) {
+        // If shipping layout is empty or invalid, use default
+        if (empty($settings['shipping_layout']) || !is_array($settings['shipping_layout'])) {
             $settings['shipping_layout'] = [
                 ['first_name', 'last_name'],
                 ['company'],
@@ -77,7 +70,10 @@ class PFB_Public
             ];
         }
 
-        error_log('Final processed settings: ' . print_r($settings, true));
+        // Ensure boolean values
+        $settings['enable_billing'] = filter_var($settings['enable_billing'], FILTER_VALIDATE_BOOLEAN);
+        $settings['enable_shipping'] = filter_var($settings['enable_shipping'], FILTER_VALIDATE_BOOLEAN);
+        $settings['enable_same_as_billing'] = filter_var($settings['enable_same_as_billing'], FILTER_VALIDATE_BOOLEAN);
 
         return $settings;
     }
@@ -284,6 +280,7 @@ class PFB_Public
 
         ob_start();
     ?>
+    <div class="payment-form-container">
         <form id="payment-form-<?php echo $atts['id']; ?>" class="payment-form">
             <?php foreach ($form_fields as $field): ?>
                 <?php if ($field['type'] === 'two-column'): ?>
@@ -349,6 +346,7 @@ class PFB_Public
 
             <button type="submit">Pay <?php echo esc_html($amount . ' ' . strtoupper($currency)); ?></button>
         </form>
+    </div>
 <?php
         return ob_get_clean();
     }
@@ -404,5 +402,30 @@ class PFB_Public
             'publicKey' => $public_key,
             'nonce' => wp_create_nonce('process_payment_form')
         ));
+    }
+
+    public function enqueue_styles()
+    {
+        wp_enqueue_style('payment-form-builder-public', plugin_dir_url(__FILE__) . 'css/payment-form-builder-public.css', array(), $this->version, 'all');
+
+    // Get global CSS directly from database
+    global $wpdb;
+    $global_css = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+            'pfb_global_css'
+        )
+    );
+
+    if (!empty($global_css)) {
+        // Wrap the CSS in the form container selector
+        $wrapped_css = ".payment-form-container {
+            /* Global CSS */
+            " . wp_strip_all_tags($global_css) . "
+        }";
+        
+        // Add the CSS inline
+        wp_add_inline_style('payment-form-builder-public', $wrapped_css);
+    }
     }
 }
