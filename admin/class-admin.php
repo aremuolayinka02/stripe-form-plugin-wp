@@ -151,7 +151,7 @@ class PFB_Admin
             wp_verify_nonce($_POST['pfb_schedule_nonce'], 'pfb_schedule_payment_check')
         ) {
             if (!wp_next_scheduled('pfb_check_pending_payments')) {
-                wp_schedule_event(time(), 'five_minutes', 'pfb_check_pending_payments');
+                wp_schedule_event(time(), 'three_minutes', 'pfb_check_pending_payments');
 
                 // Add success message
                 add_action('admin_notices', function () {

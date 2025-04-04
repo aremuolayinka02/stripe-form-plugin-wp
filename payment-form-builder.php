@@ -70,9 +70,9 @@ class Payment_Form_Builder
 
     public function add_cron_interval($schedules)
     {
-        $schedules['five_minutes'] = array(
-            'interval' => 300, // 5 minutes in seconds
-            'display'  => esc_html__('Every 5 Minutes', 'payment-form-builder'),
+        $schedules['three_minutes'] = array(
+            'interval' => 180, // 5 minutes in seconds
+            'display'  => esc_html__('Every 3 Minutes', 'payment-form-builder'),
         );
         return $schedules;
     }
@@ -85,6 +85,22 @@ class Payment_Form_Builder
             wp_unschedule_event($timestamp, 'pfb_check_missed_emails');
         }
     }
+
+
+     private function format_currency($amount, $currency) {
+            $symbols = [
+                'usd' => '$',
+                'eur' => '€',
+                'gbp' => '£',
+                'jpy' => '¥',
+                // Add more currencies as needed
+            ];
+            
+            $currency = strtolower($currency);
+            $symbol = isset($symbols[$currency]) ? $symbols[$currency] : $currency . ' ';
+            
+            return $symbol . number_format($amount, 2);
+        }
 
     // Process missed emails
     public function process_missed_emails()
@@ -183,7 +199,7 @@ class Payment_Form_Builder
         error_log('Found ' . count($pending_payments) . ' pending payments to check.');
 
         foreach ($pending_payments as $payment) {
-            $payment_intent_id = $payment->payment_intent_id;
+            $payment_intent_id = $payment->payment_intent;
 
             if (empty($payment_intent_id)) {
                 error_log('Payment ID ' . $payment->id . ' has no payment intent ID. Skipping.');
@@ -196,19 +212,26 @@ class Payment_Form_Builder
             $stripe = new PFB_Stripe();
 
             // Check the payment status
-            $status = $stripe->check_payment_status($payment_intent_id);
+            $status = $stripe->check_payment_status($payment_intent_id) ? 'completed' : 'failed';
 
             if ($status && $status !== $payment->payment_status) {
                 error_log('Payment ' . $payment_intent_id . ' status changed from ' . $payment->payment_status . ' to ' . $status);
 
-                // Update the payment status
-                $wpdb->update(
+                // Update the payment status - CORRECTED FORMAT SPECIFIERS
+                $update_result = $wpdb->update(
                     $table_name,
-                    array('payment_status' => $status),
+                    array(
+                        'payment_status' => $status,
+                        'updated_at' => current_time('mysql')
+                    ),
                     array('id' => $payment->id),
-                    array('%s'),
-                    array('%d')
+                    array('%s', '%s'),  // Use %s for string (status) and datetime
+                    array('%d')         // Use %d for integer (id)
                 );
+
+                if ($update_result === false) {
+                    error_log('Failed to update payment status. DB Error: ' . $wpdb->last_error);
+                }
 
                 // If payment is completed, send email notification if not already sent
                 if ($status === 'completed' && $payment->email_sent != 1) {
@@ -217,11 +240,15 @@ class Payment_Form_Builder
                     // Get the form handler instance
                     $form_handler = new PFB_Form_Handler();
 
-                    // Get the form data
-                    $form_data = json_decode($payment->form_data, true);
+                    // Get the submission data
+                    $submission_data = json_decode($payment->submission_data, true);
 
                     // Send the email notification
-                    $email_sent = $form_handler->send_admin_notification($payment->form_id, $form_data, $payment_intent_id);
+                    $email_sent = $form_handler->send_admin_notification(
+                        $payment->id,
+                        $payment->form_id,
+                        $submission_data
+                    );
 
                     // Update the email_sent column
                     if ($email_sent) {
@@ -230,8 +257,8 @@ class Payment_Form_Builder
                             $table_name,
                             array('email_sent' => 1),
                             array('id' => $payment->id),
-                            array('%d'),
-                            array('%d')
+                            array('%d'),  // Use %d for integer (email_sent)
+                            array('%d')   // Use %d for integer (id)
                         );
                     } else {
                         error_log('Failed to send email for payment ' . $payment_intent_id);
@@ -299,7 +326,7 @@ class Payment_Form_Builder
 
             // Schedule payment status check
             if (!wp_next_scheduled('pfb_check_pending_payments')) {
-                wp_schedule_event(time(), 'five_minutes', 'pfb_check_pending_payments');
+                wp_schedule_event(time(), 'three_minutes', 'pfb_check_pending_payments');
             }
 
             // Flush rewrite rules

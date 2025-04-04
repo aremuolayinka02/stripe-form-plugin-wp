@@ -448,8 +448,14 @@ class PFB_Form_Handler
 
         // Get form details
         $form_title = get_the_title($form_id);
-        $amount = get_post_meta($form_id, '_payment_amount', true);
+        $amount = floatval(get_post_meta($form_id, '_payment_amount', true));
         $currency = get_post_meta($form_id, '_payment_currency', true) ?: 'usd';
+        $shipping_amount = floatval(get_post_meta($form_id, '_shipping_amount', true));
+
+
+        // Add them together
+        $total_amount = $shipping_amount + $amount;
+
 
 
         error_log("Email details - Form: $form_title, Amount: $amount $currency");
@@ -457,8 +463,8 @@ class PFB_Form_Handler
         // Build email content
         $message = "A new payment has been received.\n\n";
         $message .= "Form: " . $form_title . "\n";
-        $message .= "Amount: " . $amount . " " . strtoupper($currency) . "\n\n";
-        $message .= "Fields submitted\n\n:";
+        $message .= "Amount: " . $total_amount . " " . strtoupper($currency) . "\n\n";
+        $message .= "Fields submitted:\n\n";
 
         foreach ($form_data as $field => $value) {
             $message .= $field . ": " . $value . "\n";

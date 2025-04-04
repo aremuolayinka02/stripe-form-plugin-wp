@@ -17,6 +17,7 @@
   border: 1px solid #ddd;
   display: flex;
   align-items: center;
+  color: #000 !important;
 }
 
 .field-row input[type="text"] {

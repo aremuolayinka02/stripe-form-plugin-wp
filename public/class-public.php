@@ -377,7 +377,7 @@ if (!class_exists('PFB_Public')):
                         </div>
                     </div>
 
-                    <button type="submit">Pay <?php echo esc_html($this->format_currency($amount, $currency)); ?></button>
+                    <button type="submit">Pay <?php echo esc_html($this->format_currency($amount + $shipping_amount, $currency)); ?></button>
                 </form>
             </div>
 <?php

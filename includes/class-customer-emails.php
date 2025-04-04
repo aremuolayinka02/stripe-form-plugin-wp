@@ -130,25 +130,66 @@ class PFB_Customer_Emails
      */
     private function send_email($payment_record, $customer_email, $subject, $template)
     {
-        // Get customer name from submission data if available
+        // Get customer name and shipping details from submission data
         $submission_data = json_decode($payment_record->submission_data, true);
         $customer_name = '';
+        $shipping_details = array();
+        $shipping_amount = floatval(get_post_meta($payment_record->form_id, '_shipping_amount', true));
+
         if (is_array($submission_data)) {
+            // Get customer name
             foreach ($submission_data as $field_label => $value) {
                 if (stripos($field_label, 'name') !== false) {
                     $customer_name = $value;
                     break;
                 }
             }
+
+            // Get shipping details if available
+            $shipping_fields = array(
+                'shipping_address_1' => 'Address',
+                'shipping_address_2' => 'Address 2',
+                'shipping_city' => 'City',
+                'shipping_state' => 'State',
+                'shipping_postcode' => 'Postal Code',
+                'shipping_country' => 'Country'
+            );
+
+            foreach ($shipping_fields as $field_key => $label) {
+                if (isset($submission_data[$field_key])) {
+                    $shipping_details[$label] = $submission_data[$field_key];
+                }
+            }
+        }
+
+        // Calculate totals
+        $subtotal = floatval($payment_record->amount);
+        $shipping_cost = $shipping_amount;
+        $total = $subtotal + $shipping_cost;
+
+        // Format shipping address
+        $shipping_address = '';
+        if (!empty($shipping_details)) {
+            $shipping_address = '<h3>Shipping Address:</h3><p>';
+            foreach ($shipping_details as $label => $value) {
+                if (!empty($value)) {
+                    $shipping_address .= $label . ': ' . $value . '<br>';
+                }
+            }
+            $shipping_address .= '</p>';
         }
 
         // Replace variables in subject and template
         $variables = array(
             '{customer_name}' => $customer_name,
-            '{order_amount}' => number_format($payment_record->amount, 2),
+            '{subtotal}' => number_format($subtotal, 2),
+            '{shipping_cost}' => number_format($shipping_cost, 2),
+            '{total_amount}' => number_format($total, 2),
             '{order_id}' => $payment_record->id,
             '{payment_date}' => date_i18n(get_option('date_format'), strtotime($payment_record->created_at)),
-            '{form_title}' => get_the_title($payment_record->form_id)
+            '{form_title}' => get_the_title($payment_record->form_id),
+            '{shipping_address}' => $shipping_address,
+            '{currency}' => strtoupper($payment_record->currency)
         );
 
         $subject = str_replace(array_keys($variables), array_values($variables), $subject);
@@ -165,11 +206,68 @@ class PFB_Customer_Emails
     private function get_default_success_template()
     {
         return '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .order-details {
+                    margin: 20px 0;
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }
+                .order-summary {
+                    margin-top: 20px;
+                    border-top: 2px solid #eee;
+                    padding-top: 10px;
+                }
+                .amount-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 5px 0;
+                }
+                .total-row {
+                    font-weight: bold;
+                    border-top: 1px solid #ddd;
+                    padding-top: 5px;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
             <p>Dear {customer_name},</p>
-            <p>Thank you for your payment of {order_amount}.</p>
-            <p>Your order ID is: {order_id}</p>
-            <p>Date: {payment_date}</p>
+            
+            <p>Thank you for your order! Your payment has been successfully processed.</p>
+            
+            <div class="order-details">
+                <h3>Order Details:</h3>
+                <p>Order ID: {order_id}</p>
+                <p>Date: {payment_date}</p>
+                
+                {shipping_address}
+                
+                <div class="order-summary">
+                    <h3>Order Summary:</h3>
+                    <div class="amount-row">
+                        <span>Subtotal:</span>
+                        <span>{currency} {subtotal}</span>
+                    </div>
+                    <div class="amount-row">
+                        <span>Shipping:</span>
+                        <span>{currency} {shipping_cost}</span>
+                    </div>
+                    <div class="amount-row total-row">
+                        <span>Total:</span>
+                        <span>{currency} {total_amount}</span>
+                    </div>
+                </div>
+            </div>
+            
             <p>Thank you for your business!</p>
+            
+            <p>If you have any questions about your order, please contact us.</p>
+        </body>
+        </html>
         ';
     }
 
@@ -179,11 +277,71 @@ class PFB_Customer_Emails
     private function get_default_failed_template()
     {
         return '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .order-details {
+                    margin: 20px 0;
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }
+                .order-summary {
+                    margin-top: 20px;
+                    border-top: 2px solid #eee;
+                    padding-top: 10px;
+                }
+                .amount-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 5px 0;
+                }
+                .total-row {
+                    font-weight: bold;
+                    border-top: 1px solid #ddd;
+                    padding-top: 5px;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
             <p>Dear {customer_name},</p>
-            <p>We\'re sorry, but your payment of {order_amount} has failed to process.</p>
-            <p>Order ID: {order_id}</p>
-            <p>Date: {payment_date}</p>
-            <p>Please try again or contact us if you need assistance.</p>
+            
+            <p>We\'re sorry, but your payment has failed to process.</p>
+            
+            <div class="order-details">
+                <h3>Order Details:</h3>
+                <p>Order ID: {order_id}</p>
+                <p>Date: {payment_date}</p>
+                
+                <div class="order-summary">
+                    <h3>Payment Summary:</h3>
+                    <div class="amount-row">
+                        <span>Subtotal:</span>
+                        <span>{currency} {subtotal}</span>
+                    </div>
+                    <div class="amount-row">
+                        <span>Shipping:</span>
+                        <span>{currency} {shipping_cost}</span>
+                    </div>
+                    <div class="amount-row total-row">
+                        <span>Total:</span>
+                        <span>{currency} {total_amount}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <p>Please try the following:</p>
+            <ul>
+                <li>Check your payment details and try again</li>
+                <li>Make sure your card has sufficient funds</li>
+                <li>Contact your bank if the problem persists</li>
+            </ul>
+            
+            <p>If you need assistance, please don\'t hesitate to contact us.</p>
+        </body>
+        </html>
         ';
     }
 }
