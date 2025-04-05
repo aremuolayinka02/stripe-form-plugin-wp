@@ -98,8 +98,9 @@ class PFB_Customer_Emails
         $subject = get_post_meta($payment_record->form_id, '_customer_success_email_subject', true);
         $template = get_post_meta($payment_record->form_id, '_customer_success_email_template', true);
 
+        global $pfb_admin;
         if (empty($template)) {
-            $template = $this->get_default_success_template();
+            $template = $pfb_admin->get_default_success_template();
         }
 
         $this->send_email($payment_record, $customer_email, $subject, $template);
@@ -118,8 +119,9 @@ class PFB_Customer_Emails
         $subject = get_post_meta($payment_record->form_id, '_customer_failed_email_subject', true);
         $template = get_post_meta($payment_record->form_id, '_customer_failed_email_template', true);
 
+        global $pfb_admin;
         if (empty($template)) {
-            $template = $this->get_default_failed_template();
+            $template = $pfb_admin->get_default_failed_template();
         }
 
         $this->send_email($payment_record, $customer_email, $subject, $template);
@@ -198,150 +200,5 @@ class PFB_Customer_Emails
         $headers = array('Content-Type: text/html; charset=UTF-8');
 
         wp_mail($customer_email, $subject, $message, $headers);
-    }
-
-    /**
-     * Get default success email template
-     */
-    private function get_default_success_template()
-    {
-        return '
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                .order-details {
-                    margin: 20px 0;
-                    padding: 15px;
-                    border: 1px solid #ddd;
-                    border-radius: 5px;
-                }
-                .order-summary {
-                    margin-top: 20px;
-                    border-top: 2px solid #eee;
-                    padding-top: 10px;
-                }
-                .amount-row {
-                    display: flex;
-                    justify-content: space-between;
-                    margin: 5px 0;
-                }
-                .total-row {
-                    font-weight: bold;
-                    border-top: 1px solid #ddd;
-                    padding-top: 5px;
-                    margin-top: 5px;
-                }
-            </style>
-        </head>
-        <body>
-            <p>Dear {customer_name},</p>
-            
-            <p>Thank you for your order! Your payment has been successfully processed.</p>
-            
-            <div class="order-details">
-                <h3>Order Details:</h3>
-                <p>Order ID: {order_id}</p>
-                <p>Date: {payment_date}</p>
-                
-                {shipping_address}
-                
-                <div class="order-summary">
-                    <h3>Order Summary:</h3>
-                    <div class="amount-row">
-                        <span>Subtotal:</span>
-                        <span>{currency} {subtotal}</span>
-                    </div>
-                    <div class="amount-row">
-                        <span>Shipping:</span>
-                        <span>{currency} {shipping_cost}</span>
-                    </div>
-                    <div class="amount-row total-row">
-                        <span>Total:</span>
-                        <span>{currency} {total_amount}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <p>Thank you for your business!</p>
-            
-            <p>If you have any questions about your order, please contact us.</p>
-        </body>
-        </html>
-        ';
-    }
-
-    /**
-     * Get default failed email template
-     */
-    private function get_default_failed_template()
-    {
-        return '
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                .order-details {
-                    margin: 20px 0;
-                    padding: 15px;
-                    border: 1px solid #ddd;
-                    border-radius: 5px;
-                }
-                .order-summary {
-                    margin-top: 20px;
-                    border-top: 2px solid #eee;
-                    padding-top: 10px;
-                }
-                .amount-row {
-                    display: flex;
-                    justify-content: space-between;
-                    margin: 5px 0;
-                }
-                .total-row {
-                    font-weight: bold;
-                    border-top: 1px solid #ddd;
-                    padding-top: 5px;
-                    margin-top: 5px;
-                }
-            </style>
-        </head>
-        <body>
-            <p>Dear {customer_name},</p>
-            
-            <p>We\'re sorry, but your payment has failed to process.</p>
-            
-            <div class="order-details">
-                <h3>Order Details:</h3>
-                <p>Order ID: {order_id}</p>
-                <p>Date: {payment_date}</p>
-                
-                <div class="order-summary">
-                    <h3>Payment Summary:</h3>
-                    <div class="amount-row">
-                        <span>Subtotal:</span>
-                        <span>{currency} {subtotal}</span>
-                    </div>
-                    <div class="amount-row">
-                        <span>Shipping:</span>
-                        <span>{currency} {shipping_cost}</span>
-                    </div>
-                    <div class="amount-row total-row">
-                        <span>Total:</span>
-                        <span>{currency} {total_amount}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <p>Please try the following:</p>
-            <ul>
-                <li>Check your payment details and try again</li>
-                <li>Make sure your card has sufficient funds</li>
-                <li>Contact your bank if the problem persists</li>
-            </ul>
-            
-            <p>If you need assistance, please don\'t hesitate to contact us.</p>
-        </body>
-        </html>
-        ';
     }
 }

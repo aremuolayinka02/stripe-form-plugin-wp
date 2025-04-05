@@ -355,6 +355,139 @@ class PFB_Admin
         );
     }
 
+    private function get_default_success_template() {
+        return '<!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .order-details {
+                    margin: 20px 0;
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }
+                .order-summary {
+                    margin-top: 20px;
+                    border-top: 2px solid #eee;
+                    padding-top: 10px;
+                }
+                .amount-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 5px 0;
+                }
+                .total-row {
+                    font-weight: bold;
+                    border-top: 1px solid #ddd;
+                    padding-top: 5px;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
+            <p>Dear {customer_name},</p>
+            
+            <p>Thank you for your order! Your payment has been successfully processed.</p>
+            
+            <div class="order-details">
+                <h3>Order Details:</h3>
+                <p>Order ID: {order_id}</p>
+                <p>Date: {payment_date}</p>
+                
+                {shipping_address}
+                
+                <div class="order-summary">
+                    <h3>Order Summary:</h3>
+                    <div class="amount-row">
+                        <span>Subtotal:</span>
+                        <span>{currency} {subtotal}</span>
+                    </div>
+                    <div class="amount-row">
+                        <span>Shipping:</span>
+                        <span>{currency} {shipping_cost}</span>
+                    </div>
+                    <div class="amount-row total-row">
+                        <span>Total:</span>
+                        <span>{currency} {total_amount}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <p>Thank you for your business!</p>
+            
+            <p>If you have any questions about your order, please contact us.</p>
+        </body>
+        </html>';
+    }
+
+    private function get_default_failed_template() {
+        return '<!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                .order-details {
+                    margin: 20px 0;
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }
+                .order-summary {
+                    margin-top: 20px;
+                    border-top: 2px solid #eee;
+                    padding-top: 10px;
+                }
+                .amount-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 5px 0;
+                }
+                .total-row {
+                    font-weight: bold;
+                    border-top: 1px solid #ddd;
+                    padding-top: 5px;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
+            <p>Dear {customer_name},</p>
+            
+            <p>We\'re sorry, but your payment has failed to process.</p>
+            
+            <div class="order-details">
+                <h3>Order Details:</h3>
+                <p>Order ID: {order_id}</p>
+                <p>Date: {payment_date}</p>
+                
+                <div class="order-summary">
+                    <h3>Payment Summary:</h3>
+                    <div class="amount-row">
+                        <span>Subtotal:</span>
+                        <span>{currency} {subtotal}</span>
+                    </div>
+                    <div class="amount-row">
+                        <span>Shipping:</span>
+                        <span>{currency} {shipping_cost}</span>
+                    </div>
+                    <div class="amount-row total-row">
+                        <span>Total:</span>
+                        <span>{currency} {total_amount}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <p>Please try the following:</p>
+            <ul>
+                <li>Check your payment details and try again</li>
+                <li>Make sure your card has sufficient funds</li>
+                <li>Contact your bank if the problem persists</li>
+            </ul>
+            
+            <p>If you need assistance, please don\'t hesitate to contact us.</p>
+        </body>
+        </html>';
+    }
+
     public function render_tabbed_interface($post)
     {
         wp_nonce_field('save_form_builder', 'form_builder_nonce');
@@ -411,11 +544,11 @@ class PFB_Admin
                     // Get saved customer email settings
                     $success_email_enabled = get_post_meta($post->ID, '_customer_success_email_enabled', true);
                     $success_email_subject = get_post_meta($post->ID, '_customer_success_email_subject', true) ?: 'Payment Confirmation';
-                    $success_email_template = get_post_meta($post->ID, '_customer_success_email_template', true);
+                    $success_email_template = get_post_meta($post->ID, '_customer_success_email_template', true) ?: $this->get_default_success_template();
 
                     $failed_email_enabled = get_post_meta($post->ID, '_customer_failed_email_enabled', true);
                     $failed_email_subject = get_post_meta($post->ID, '_customer_failed_email_subject', true) ?: 'Payment Failed';
-                    $failed_email_template = get_post_meta($post->ID, '_customer_failed_email_template', true);
+                    $failed_email_template = get_post_meta($post->ID, '_customer_failed_email_template', true) ?: $this->get_default_failed_template();
                     ?>
 
                     <div class="customer-email-settings">
