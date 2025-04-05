@@ -355,7 +355,8 @@ class PFB_Admin
         );
     }
 
-    private function get_default_success_template() {
+    private function get_default_success_template()
+    {
         return '<!DOCTYPE html>
         <html>
         <head>
@@ -420,7 +421,8 @@ class PFB_Admin
         </html>';
     }
 
-    private function get_default_failed_template() {
+    private function get_default_failed_template()
+    {
         return '<!DOCTYPE html>
         <html>
         <head>
@@ -568,10 +570,13 @@ class PFB_Admin
 
                             <p>
                                 <label>Email Template:</label>
-                                <textarea name="customer_success_email_template" rows="8" class="large-text"><?php echo esc_textarea($success_email_template); ?></textarea>
+                            <div class="template-editor-container">
+                                <div id="success-template-editor" class="code-editor" style="height: 400px;"><?php echo esc_textarea($success_email_template); ?></div>
+                                <textarea name="customer_success_email_template" style="display: none;"><?php echo esc_textarea($success_email_template); ?></textarea>
+                            </div>
                             </p>
 
-                            <p class="description">Available variables: {customer_name}, {order_amount}, {order_id}, {payment_date}, {form_title}</p>
+                            <p class="description">Available variables: {customer_name}, {subtotal}, {shipping_cost}, {total_amount}, {order_id}, {payment_date}, {form_title}, {shipping_address}, {currency}</p>
                         </div>
 
                         <h5>Failed Payment</h5>
@@ -590,10 +595,13 @@ class PFB_Admin
 
                             <p>
                                 <label>Email Template:</label>
-                                <textarea name="customer_failed_email_template" rows="8" class="large-text"><?php echo esc_textarea($failed_email_template); ?></textarea>
+                            <div class="template-editor-container">
+                                <div id="failed-template-editor" class="code-editor" style="height: 400px;"><?php echo esc_textarea($failed_email_template); ?></div>
+                                <textarea name="customer_failed_email_template" style="display: none;"><?php echo esc_textarea($failed_email_template); ?></textarea>
+                            </div>
                             </p>
 
-                            <p class="description">Available variables: {customer_name}, {order_amount}, {order_id}, {payment_date}, {form_title}</p>
+                            <p class="description">Available variables: {customer_name}, {subtotal}, {shipping_cost}, {total_amount}, {order_id}, {payment_date}, {form_title}, {shipping_address}, {currency}</p>
                         </div>
                     </div>
                 </div>
@@ -2287,7 +2295,22 @@ class PFB_Admin
             'pfb-form-builder',
             PFB_PLUGIN_URL . 'admin/js/form-builder.js',
             array('jquery', 'jquery-ui-sortable'),
-            PFB_VERSION . '.' . time(), // Add timestamp to prevent caching during development
+            PFB_VERSION . '.' . time(),
+            true
+        );
+
+        // Add HTML beautifier and Ace Editor
+        wp_enqueue_script('js-beautify', 'https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.7/beautify-html.min.js', array(), '1.14.7');
+        wp_enqueue_script('ace-editor', 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js', array(), '1.4.12');
+        wp_enqueue_script('ace-ext-language_tools', 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.js', array('ace-editor'));
+        wp_enqueue_script('ace-theme-monokai', 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/theme-monokai.min.js', array('ace-editor'));
+        wp_enqueue_script('ace-mode-html', 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-html.min.js', array('ace-editor'));
+
+        wp_enqueue_script(
+            'pfb-template-editor',
+            PFB_PLUGIN_URL . 'admin/js/template-editor.js',
+            array('jquery', 'ace-editor', 'js-beautify'),
+            PFB_VERSION . '.' . time(),
             true
         );
     }

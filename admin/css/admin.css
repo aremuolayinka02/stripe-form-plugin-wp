@@ -642,3 +642,21 @@
 .required {
   color: red;
 }
+
+.template-editor-container {
+    border: 1px solid #ddd;
+    margin: 10px 0;
+}
+
+.code-editor {
+    width: 100%;
+    min-height: 400px;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.CodeMirror {
+    height: auto !important;
+    min-height: 400px;
+}
