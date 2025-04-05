@@ -180,7 +180,7 @@ class Payment_Form_Builder
         global $wpdb;
         $table_name = $wpdb->prefix . 'pfb_submissions';
 
-        // Get all pending payments older than 5 minutes
+        // Get all pending payments older than 3 minutes
         $pending_payments = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT * FROM $table_name 

@@ -447,7 +447,7 @@ if (!class_exists('PFB_Public')):
                 'pfb-public',
                 PFB_PLUGIN_URL . 'public/js/public.js',
                 array('jquery', 'stripe-js'),
-                PFB_VERSION,
+                PFB_VERSION . '.' . time(),
                 true
             );
 

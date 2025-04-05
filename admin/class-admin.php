@@ -38,6 +38,142 @@ class PFB_Admin
         add_action('update_option_pfb_enable_billing', array($this, 'handle_settings_update'), 10, 3);
         add_action('update_option_pfb_enable_shipping', array($this, 'handle_settings_update'), 10, 3);
         add_action('update_option_pfb_enable_same_as_billing', array($this, 'handle_settings_update'), 10, 3);
+
+        // Add filter for post row actions
+        add_filter('post_row_actions', array($this, 'customize_row_actions'), 10, 2);
+        // Add handler for form duplication
+        add_action('admin_post_duplicate_payment_form', array($this, 'handle_form_duplication'));
+    }
+
+
+    /**
+     * Handle the duplication of a payment form
+     */
+    public function handle_form_duplication()
+    {
+        // Check nonce and permissions
+        if (
+            !isset($_GET['post']) ||
+            !wp_verify_nonce($_GET['_wpnonce'], 'duplicate_payment_form_' . $_GET['post']) ||
+            !current_user_can('edit_posts')
+        ) {
+            wp_die(__('Security check failed', 'payment-form-builder'));
+        }
+
+        $post_id = absint($_GET['post']);
+        $post = get_post($post_id);
+
+        if (!$post || $post->post_type !== 'payment_form') {
+            wp_die(__('Invalid form', 'payment-form-builder'));
+        }
+
+        global $wpdb;
+
+        try {
+            // Start transaction
+            $wpdb->query('START TRANSACTION');
+
+            // 1. Duplicate the post
+            $new_post = array(
+                'post_title'   => $post->post_title . ' (Copy)',
+                'post_status'  => 'draft',
+                'post_type'    => $post->post_type,
+                'post_author'  => get_current_user_id()
+            );
+
+            $new_post_id = wp_insert_post($new_post);
+
+            if (is_wp_error($new_post_id)) {
+                throw new Exception($new_post_id->get_error_message());
+            }
+
+            // 2. Copy post meta
+            $post_meta = get_post_meta($post_id);
+            foreach ($post_meta as $meta_key => $meta_values) {
+                foreach ($meta_values as $meta_value) {
+                    add_post_meta($new_post_id, $meta_key, maybe_unserialize($meta_value));
+                }
+            }
+
+            // 3. Duplicate form fields from custom table
+            $form_fields_table = $wpdb->prefix . 'pfb_form_fields';
+
+            // Get original form fields
+            $original_fields = $wpdb->get_row($wpdb->prepare(
+                "SELECT field_data FROM $form_fields_table WHERE form_id = %d",
+                $post_id
+            ));
+
+            if ($original_fields) {
+                // Insert new form fields
+                $wpdb->insert(
+                    $form_fields_table,
+                    array(
+                        'form_id' => $new_post_id,
+                        'field_data' => $original_fields->field_data
+                    ),
+                    array('%d', '%s')
+                );
+
+                if ($wpdb->last_error) {
+                    throw new Exception($wpdb->last_error);
+                }
+            }
+
+            // Commit transaction
+            $wpdb->query('COMMIT');
+
+            // Redirect to the edit screen of the new form
+            wp_redirect(admin_url('post.php?action=edit&post=' . $new_post_id));
+            exit;
+        } catch (Exception $e) {
+            // Rollback on error
+            $wpdb->query('ROLLBACK');
+            wp_die(sprintf(
+                __('Error duplicating form: %s', 'payment-form-builder'),
+                $e->getMessage()
+            ));
+        }
+    }
+
+
+    public function customize_row_actions($actions, $post)
+    {
+        // Only modify actions for our custom post type
+        if ($post->post_type === 'payment_form') {
+            // Clear all existing actions
+            $actions = array();
+
+            // Add only the actions we want
+            $actions['edit'] = sprintf(
+                '<a href="%s">%s</a>',
+                get_edit_post_link($post->ID),
+                esc_html__('Edit', 'payment-form-builder')
+            );
+
+            $actions['trash'] = sprintf(
+                '<a href="%s" class="submitdelete">%s</a>',
+                get_delete_post_link($post->ID),
+                esc_html__('Trash', 'payment-form-builder')
+            );
+
+            // Add duplicate action
+            $duplicate_url = wp_nonce_url(
+                admin_url(sprintf(
+                    'admin-post.php?action=duplicate_payment_form&post=%d',
+                    $post->ID
+                )),
+                'duplicate_payment_form_' . $post->ID
+            );
+
+            $actions['duplicate'] = sprintf(
+                '<a href="%s">%s</a>',
+                esc_url($duplicate_url),
+                esc_html__('Duplicate', 'payment-form-builder')
+            );
+        }
+
+        return $actions;
     }
 
     public function register_form_post_type()
@@ -958,7 +1094,7 @@ class PFB_Admin
 
         <hr>
         <h3>Automatic Payment Checks</h3>
-        <p>The plugin automatically checks pending payments every 5 minutes.</p>
+        <p>The plugin automatically checks pending payments every 3 minutes.</p>
 
         <?php
         $next_run = wp_next_scheduled('pfb_check_pending_payments');
@@ -1947,7 +2083,7 @@ class PFB_Admin
             wp_enqueue_script('jquery-ui-droppable');
             wp_enqueue_script('jquery-ui-sortable');
 
-            wp_enqueue_style('pfb-admin', PFB_PLUGIN_URL . 'admin/css/admin.css', array(), PFB_VERSION);
+            wp_enqueue_style('pfb-admin', PFB_PLUGIN_URL . 'admin/css/admin.css', array(), filemtime(PFB_PLUGIN_DIR . 'admin/css/admin.css'));
             return;
         }
 
@@ -1960,7 +2096,7 @@ class PFB_Admin
             wp_enqueue_script('jquery-ui-droppable');
             wp_enqueue_script('jquery-ui-sortable');
 
-            wp_enqueue_style('pfb-admin', PFB_PLUGIN_URL . 'admin/css/admin.css', array(), PFB_VERSION);
+            wp_enqueue_style('pfb-admin', PFB_PLUGIN_URL . 'admin/css/admin.css', array(), filemtime(PFB_PLUGIN_DIR . 'admin/css/admin.css'));
             wp_add_inline_style('pfb-admin', '
         .nav-tab-wrapper {
             margin-bottom: 20px;
@@ -2010,7 +2146,7 @@ class PFB_Admin
             'pfb-admin',
             PFB_PLUGIN_URL . 'admin/css/admin.css',
             array(),
-            PFB_VERSION
+            filemtime(PFB_PLUGIN_DIR . 'admin/css/admin.css')
         );
 
         // Enqueue the form builder script
